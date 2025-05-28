@@ -1,0 +1,13 @@
+{
+  "scripts": {
+    "version": "npm version $npm_package_version --workspaces && git add **/package.json"
+  },
+  "workspaces": [
+    "packages/sdk-core",
+    "packages/sdk-solana",
+    "packages/sdk-facade",
+    "packages/borsh",
+    "packages/sdk-sui"
+  ],
+  "version": "0.1.0"
+}
