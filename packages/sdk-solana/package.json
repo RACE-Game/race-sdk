@@ -43,13 +43,15 @@
     "typescript": "^5.0.4"
   },
   "peerDependencies": {
-    "@solana-program/token": "^0.4.1",
     "@metaplex-foundation/mpl-token-metadata": "^3.3.0",
     "@metaplex-foundation/umi": "^0.8.2",
     "@race-foundation/borsh": "*",
     "@race-foundation/sdk-core": "*",
     "@solana-program/system": "^0.6.2",
-    "@solana/web3.js": "^2.0.0"
+    "@solana-program/token": "^0.4.1",
+    "@solana/wallet-standard": "^1.1.4",
+    "@solana/web3.js": "^2.0.0",
+    "@wallet-standard/base": "^1.1.0"
   },
   "testDependencies": {
     "crypto": "1.0.1"

@@ -1,19 +1,18 @@
-borsh:
-    npm run build --workspace=@race-foundation/borsh
+build-all: (build "borsh") (build "sdk-core") (build "sdk-solana") (build "sdk-sui") (build "sdk-facade")
 
-sdk-core:
-    npm run build --workspace=@race-foundation/sdk-core
+build pkg:
+    npm run build --workspace=@race-foundation/{{pkg}}
 
-sdk-facade:
-    npm run build --workspace=@race-foundation/sdk-facade
-
-sdk-solana:
-    npm run build --workspace=@race-foundation/sdk-solana
-
-sdk-sui:
-    npm run build --workspace=@race-foundation/sdk-sui
-
-sdk: sdk-core sdk-facade sdk-solana sdk-sui
+check pkg:
+    npm run check --workspace=@race-foundation/{{pkg}}
 
 deps:
     npm i -ws
+
+# Publish js PKG to npmjs
+publish-npmjs pkg:
+    npm --prefix ./js/{{pkg}} run build
+    (cd js/{{pkg}}; npm publish --access=public)
+
+# Publish all js pacakges
+publish-npmjs-all: (publish-npmjs "borsh") (publish-npmjs "sdk-core") (publish-npmjs "sdk-facade") (publish-npmjs "sdk-solana")

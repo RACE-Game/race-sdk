@@ -1,7 +1,6 @@
-import { IWallet, SendTransactionResult } from '@race-foundation/sdk-core'
 import { makeid } from './utils'
 
-export class FacadeWallet implements IWallet {
+export class FacadeWallet {
     #addr: string
 
     constructor()
@@ -20,9 +19,5 @@ export class FacadeWallet implements IWallet {
 
     get walletAddr() {
         return this.#addr
-    }
-
-    get wallet() {
-        return undefined
     }
 }

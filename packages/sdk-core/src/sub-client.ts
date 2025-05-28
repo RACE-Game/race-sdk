@@ -15,16 +15,18 @@ import {
     ErrorCallbackFunction,
     ReadyCallbackFunction,
 } from './types'
-import { IWallet } from './wallet'
 import { CheckpointOnChain } from './checkpoint'
+import { IProfileLoader } from './profile-loader'
 
 export type SubClientCtorOpts = {
     gameAddr: string
     gameId: number
     handler: Handler
-    wallet: IWallet
+    playerAddr: string
     client: Client
     transport: ITransport
+    encryptor: IEncryptor
+    profileLoader: IProfileLoader
     connection: IConnection
     gameContext: GameContext
     latestCheckpointOnChain: CheckpointOnChain | undefined
@@ -34,7 +36,6 @@ export type SubClientCtorOpts = {
     onConnectionState: ConnectionStateCallbackFunction | undefined
     onError: ErrorCallbackFunction | undefined
     onReady: ReadyCallbackFunction | undefined
-    encryptor: IEncryptor
     info: GameInfo
     decryptionCache: DecryptionCache
     maxRetries: number
@@ -43,7 +44,6 @@ export type SubClientCtorOpts = {
 export class SubClient extends BaseClient {
     constructor(opts: SubClientCtorOpts) {
         super({
-            onLoadProfile: (_id: bigint, _addr: string) => {},
             logPrefix: `SubGame#${opts.gameId}|`,
             ...opts,
         })

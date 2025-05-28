@@ -3,10 +3,8 @@ import { Secret, Ciphertext } from './types'
 import { field } from '@race-foundation/borsh'
 import { base64ToArrayBuffer, arrayBufferToBase64 } from './utils'
 import { Chacha20 } from 'ts-chacha20'
-import { IStorage } from './storage'
 import { subtle } from './crypto'
-
-const ENCRYPTOR_VERSION = '1.0'
+import { IStorage } from './storage'
 
 export const aesContentIv = Uint8Array.of(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
@@ -42,6 +40,12 @@ export class PublicKeyRaws {
         this.rsa = fields.rsa
         this.ec = fields.ec
     }
+}
+
+export type EncryptorExportedKeys = {
+    playerAddr: string
+    ec: [string, string],
+    rsa: [string, string],
 }
 
 const RSA_PARAMS = {
@@ -354,9 +358,17 @@ export class Encryptor implements IEncryptor {
         return await verifyEc(ecPublicKey, signature.signature, buf)
     }
 
-    static async create(playerAddr: string, storage: IStorage | undefined): Promise<Encryptor> {
+    async exportKeys(playerAddr: string): Promise<EncryptorExportedKeys> {
+        return {
+            playerAddr,
+            ec: await this.exportEcKeys(),
+            rsa: await this.exportRsaKeys(),
+        }
+    }
+
+    static async create(playerAddr: string, storage?: IStorage): Promise<Encryptor> {
         if (storage !== undefined) {
-            const imported = await Encryptor.importFromStorage(playerAddr, storage)
+            const imported = await this.importFromStorage(playerAddr, storage)
             if (imported !== undefined) {
                 return imported
             }
@@ -365,36 +377,24 @@ export class Encryptor implements IEncryptor {
         const ecKeypair = await generateEcKeypair()
         const encryptor = new Encryptor(new NodePrivateKey(rsaKeypair, ecKeypair))
         if (storage !== undefined) {
-            await encryptor.exportToStorage(playerAddr, storage)
+            encryptor.exportToStorage(playerAddr, storage)
         }
         return encryptor
-    }
-
-    static makeStorageKey(playerAddr: string): string {
-        return `ENCRYPTOR_KEY_${ENCRYPTOR_VERSION}_${playerAddr}`
     }
 
     async exportToStorage(playerAddr: string, storage: IStorage) {
         const ec = await this.exportEcKeys()
         const rsa = await this.exportRsaKeys()
-        storage.setItem(
-            Encryptor.makeStorageKey(playerAddr),
-            JSON.stringify({
-                rsa,
-                ec,
-            })
-        )
+        storage.cacheEncryptorKeys({ playerAddr, ec, rsa })
     }
 
     static async importFromStorage(playerAddr: string, storage: IStorage): Promise<Encryptor | undefined> {
-        const k = Encryptor.makeStorageKey(playerAddr)
-        const v = storage.getItem(k)
-        if (v === null) {
+        const keys = await storage.getEncryptorKeys(playerAddr)
+        if (!keys) {
             return undefined
         }
-        const { rsa, ec }: { rsa: [string, string]; ec: [string, string] } = JSON.parse(v)
-        const ecKeypair = await importEc(ec)
-        const rsaKeypair = await importRsa(rsa)
+        const ecKeypair = await importEc(keys.ec)
+        const rsaKeypair = await importRsa(keys.rsa)
         return new Encryptor(new NodePrivateKey(rsaKeypair, ecKeypair))
     }
 

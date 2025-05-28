@@ -1,11 +1,11 @@
 import { SuiClient, SuiTransactionBlockResponse } from '@mysten/sui/dist/cjs/client';
 import { Transaction } from '@mysten/sui/dist/cjs/transactions';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { IWallet, ResponseHandle, Result } from '@race-foundation/sdk-core'
+import { ResponseHandle, Result } from '@race-foundation/sdk-core'
 import { ISigner } from './signer';
 import { GAS_BUDGET } from './constants';
 
-export class LocalSuiWallet implements IWallet, ISigner {
+export class LocalSuiWallet implements ISigner {
 
   keypair: Ed25519Keypair
   address: string

@@ -20,7 +20,6 @@ import {
     RegisterGameParams,
     PublishGameParams,
     ITransport,
-    IWallet,
     JoinParams,
     CloseGameAccountParams,
     CreateGameAccountParams,
@@ -32,7 +31,7 @@ import {
     TokenBalance,
 } from '@race-foundation/sdk-core'
 import { deserialize } from '@race-foundation/borsh'
-import { Chain } from '@race-foundation/sdk-core/lib/types/common'
+import { FacadeWallet } from './facade-wallet'
 
 interface JoinInstruction {
     playerAddr: string
@@ -119,19 +118,19 @@ const tokenMap: Record<string, Token> = {
     },
 }
 
-export class FacadeTransport implements ITransport {
+export class FacadeTransport implements ITransport<FacadeWallet> {
     #url: string
 
     constructor(url: string = 'http://localhost:12002') {
         this.#url = url
     }
 
-    get chain(): Chain {
-        return 'facade'
+    walletAddr(wallet: FacadeWallet): string {
+        return wallet.walletAddr
     }
 
     async createGameAccount(
-        wallet: IWallet,
+        wallet: FacadeWallet,
         params: CreateGameAccountParams,
         response: ResponseHandle<CreateGameResponse, CreateGameError>
     ): Promise<void> {
@@ -142,12 +141,12 @@ export class FacadeTransport implements ITransport {
         const signature = await this.sendInstruction('create_account', ix)
         response.succeed({ gameAddr, signature })
     }
-    closeGameAccount(_wallet: IWallet, _params: CloseGameAccountParams): Promise<void> {
+    closeGameAccount(_wallet: FacadeWallet, _params: CloseGameAccountParams): Promise<void> {
         throw new Error('Method not implemented.')
     }
 
     async deposit(
-        wallet: IWallet,
+        wallet: FacadeWallet,
         params: DepositParams,
         response: ResponseHandle<DepositResponse, DepositError>
     ): Promise<void> {
@@ -164,25 +163,25 @@ export class FacadeTransport implements ITransport {
         response.succeed({ signature })
     }
 
-    vote(_wallet: IWallet, _params: VoteParams): Promise<void> {
+    vote(_wallet: FacadeWallet, _params: VoteParams): Promise<void> {
         throw new Error('Method not implemented.')
     }
-    publishGame(_wallet: IWallet, _params: PublishGameParams): Promise<void> {
+    publishGame(_wallet: FacadeWallet, _params: PublishGameParams): Promise<void> {
         throw new Error('Method not implemented.')
     }
-    createRegistration(_wallet: IWallet, _params: CreateRegistrationParams): Promise<void> {
+    createRegistration(_wallet: FacadeWallet, _params: CreateRegistrationParams): Promise<void> {
         throw new Error('Method not implemented.')
     }
-    registerGame(_wallet: IWallet, _params: RegisterGameParams): Promise<void> {
+    registerGame(_wallet: FacadeWallet, _params: RegisterGameParams): Promise<void> {
         throw new Error('Method not implemented.')
     }
-    unregisterGame(_wallet: IWallet, _params: UnregisterGameParams): Promise<void> {
+    unregisterGame(_wallet: FacadeWallet, _params: UnregisterGameParams): Promise<void> {
         throw new Error('Method not implemented.')
     }
-    recipientClaim(_wallet: IWallet, _params: RecipientClaimParams): Promise<void> {
+    recipientClaim(_wallet: FacadeWallet, _params: RecipientClaimParams): Promise<void> {
         throw new Error('Method not implemented.')
     }
-    attachBonus(_wallet: IWallet, _params: AttachBonusParams): Promise<void> {
+    attachBonus(_wallet: FacadeWallet, _params: AttachBonusParams): Promise<void> {
         throw new Error('Method not implemented.')
     }
 
@@ -205,7 +204,7 @@ export class FacadeTransport implements ITransport {
     }
 
     async createPlayerProfile(
-        wallet: IWallet,
+        wallet: FacadeWallet,
         params: CreatePlayerProfileParams,
         response: ResponseHandle<CreatePlayerProfileResponse, CreatePlayerProfileError>
     ): Promise<void> {
@@ -218,14 +217,14 @@ export class FacadeTransport implements ITransport {
     }
 
     async createRecipient(
-        _wallet: IWallet,
+        _wallet: FacadeWallet,
         _params: CreateRecipientParams,
         _response: ResponseHandle<CreateRecipientResponse, CreateRecipientError>
     ): Promise<void> {
         throw new Error('Method not implemented.')
     }
 
-    async join(wallet: IWallet, params: JoinParams, response: ResponseHandle<JoinResponse, JoinError>): Promise<void> {
+    async join(wallet: FacadeWallet, params: JoinParams, response: ResponseHandle<JoinResponse, JoinError>): Promise<void> {
         const playerAddr = wallet.walletAddr
         const gameAccount = await this.getGameAccount(params.gameAddr)
         if (gameAccount === undefined) {

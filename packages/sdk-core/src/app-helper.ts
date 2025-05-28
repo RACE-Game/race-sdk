@@ -1,17 +1,6 @@
-import { GameAccount, Nft, Token, TokenBalance, RecipientAccount, GameBundle } from './accounts'
-import { BUNDLE_CACHE_TTL, GAME_ACCOUNT_CACHE_TTL, NFT_CACHE_TTL, TOKEN_CACHE_TTL } from './common'
+import { GameAccount, Nft, Token, TokenBalance, RecipientAccount } from './accounts'
 import { CheckpointOffChain } from './checkpoint'
 import { ResponseHandle, ResponseStream } from './response'
-import {
-    getTtlCache,
-    IStorage,
-    makeBundleCacheKey,
-    makeGameAccountCacheKey,
-    makeNftCacheKey,
-    makeTokenCacheKey,
-    setTtlCache,
-} from './storage'
-import { GameAccountCache, makeGameAccountCache } from './account-cache'
 import {
     AttachBonusError,
     AttachBonusItem,
@@ -28,14 +17,18 @@ import {
     RegisterGameResponse,
     CloseGameAccountResponse,
     CloseGameAccountError,
+    JoinResponse,
+    JoinError,
+    DepositResponse,
+    DepositError,
 } from './transport'
 import { PlayerProfileWithPfp } from './types'
-import { IWallet } from './wallet'
 import { getLatestCheckpoints } from './connection'
+import { IPublicKeyRaws } from './encryptor'
+import { IStorage } from './storage'
 
-export type AppHelperInitOpts = {
-    transport: ITransport
-    storage?: IStorage
+export type AppHelperInitOpts<W> = {
+    transport: ITransport<W>
 }
 
 export type ClaimPreview = {
@@ -43,22 +36,33 @@ export type ClaimPreview = {
     amount: bigint
 }
 
+export type JoinOpts = {
+    addr: string
+    amount: bigint
+    position?: number
+    keys: IPublicKeyRaws
+    createProfileIfNeeded?: boolean
+}
+
+export type DepositOpts = {
+    addr: string
+    amount: bigint
+}
+
 /**
  * The helper for common interaction.
  */
-export class AppHelper {
-    #transport: ITransport
-    #storage?: IStorage
+export class AppHelper<W> {
+    __transport: ITransport<W>
 
-    constructor(transport: ITransport)
-    constructor(opts: AppHelperInitOpts)
-    constructor(transportOrOpts: ITransport | AppHelperInitOpts) {
+    constructor(transport: ITransport<W>)
+    constructor(opts: AppHelperInitOpts<W>)
+    constructor(transportOrOpts: ITransport<W> | AppHelperInitOpts<W>) {
         if ('transport' in transportOrOpts) {
-            const { transport, storage } = transportOrOpts
-            this.#transport = transport
-            this.#storage = storage
+            const { transport } = transportOrOpts
+            this.__transport = transport
         } else {
-            this.#transport = transportOrOpts
+            this.__transport = transportOrOpts
         }
     }
 
@@ -69,15 +73,7 @@ export class AppHelper {
      * @returns An object of GameAccount or undefined when not found
      */
     async getGame(addr: string): Promise<GameAccount | undefined> {
-        const game = await this.#transport.getGameAccount(addr)
-        if (game === undefined) {
-            return undefined
-        }
-        if (this.#storage !== undefined) {
-            const cacheKey = makeGameAccountCacheKey(this.#transport.chain, game.addr)
-            setTtlCache(this.#storage, cacheKey, makeGameAccountCache(game), GAME_ACCOUNT_CACHE_TTL)
-        }
-        return game
+        return await this.__transport.getGameAccount(addr)
     }
 
     /**
@@ -87,7 +83,7 @@ export class AppHelper {
      * @param params - Parameters for game creation
      * @returns The address of created game
      */
-    createGame(wallet: IWallet, params: CreateGameAccountParams): ResponseStream<CreateGameResponse, CreateGameError> {
+    createGame(wallet: W, params: CreateGameAccountParams): ResponseStream<CreateGameResponse, CreateGameError> {
         if (params.title.length == 0 || params.title.length > 16) {
             throw new Error('Invalid title')
         }
@@ -114,7 +110,7 @@ export class AppHelper {
         }
 
         let response = new ResponseHandle<CreateGameResponse, CreateGameError>()
-        this.#transport.createGameAccount(wallet, params, response)
+        this.__transport.createGameAccount(wallet, params, response)
 
         return response.stream()
     }
@@ -127,12 +123,12 @@ export class AppHelper {
      * @param regAddr - The address of registration account.
      */
     registerGame(
-        wallet: IWallet,
+        wallet: W,
         gameAddr: string,
         regAddr: string
     ): ResponseStream<RegisterGameResponse, RegisterGameError> {
         const response = new ResponseHandle<RegisterGameResponse, RegisterGameError>()
-        this.#transport.registerGame(
+        this.__transport.registerGame(
             wallet,
             {
                 gameAddr,
@@ -152,13 +148,13 @@ export class AppHelper {
      * @returns {ResponseStream<CreatePlayerProfileResponse, CreatePlayerProfileError>} - A stream of responses indicating the success or failure of the operation.
      */
     createProfile(
-        wallet: IWallet,
+        wallet: W,
         nick: string,
         pfp?: string
     ): ResponseStream<CreatePlayerProfileResponse, CreatePlayerProfileError> {
         const response = new ResponseHandle<CreatePlayerProfileResponse, CreatePlayerProfileError>()
 
-        this.#transport.createPlayerProfile(wallet, { nick, pfp }, response)
+        this.__transport.createPlayerProfile(wallet, { nick, pfp }, response)
 
         return response.stream()
     }
@@ -172,13 +168,13 @@ export class AppHelper {
      * @returns A ResponseStream which provides the result of the operation with either an AttachBonusResponse or an AttachBonusError.
      */
     attachBonus(
-        wallet: IWallet,
+        wallet: W,
         gameAddr: string,
         bonuses: AttachBonusItem[]
     ): ResponseStream<AttachBonusResponse, AttachBonusError> {
         const response = new ResponseHandle<AttachBonusResponse, AttachBonusError>();
 
-        this.#transport.attachBonus(wallet, { gameAddr, bonuses }, response);
+        this.__transport.attachBonus(wallet, { gameAddr, bonuses }, response);
 
         return response.stream()
     }
@@ -192,13 +188,13 @@ export class AppHelper {
      * @returns A ResponseStream that emits either a CloseGameAccountResponse or a CloseGameAccountError.
      */
     closeGame(
-        wallet: IWallet,
+        wallet: W,
         regAddr: string,
         gameAddr: string
     ): ResponseStream<CloseGameAccountResponse, CloseGameAccountError> {
         const response = new ResponseHandle<CloseGameAccountResponse, CloseGameAccountError>();
 
-        this.#transport.closeGameAccount(wallet, { regAddr, gameAddr }, response);
+        this.__transport.closeGameAccount(wallet, { regAddr, gameAddr }, response);
 
         return response.stream();
     }
@@ -257,13 +253,14 @@ export class AppHelper {
      * Get a player profile.
      *
      * @param addr - The address of player profile account
+     * @param storage - Storage for caching NFT fetch
      * @returns The player profile account or undefined when not found
      */
-    async getProfile(addr: string): Promise<PlayerProfileWithPfp | undefined> {
-        const profile = await this.#transport.getPlayerProfile(addr)
+    async getProfile(addr: string, storage?: IStorage): Promise<PlayerProfileWithPfp | undefined> {
+        const profile = await this.__transport.getPlayerProfile(addr)
         if (profile === undefined) return undefined
         if (profile.pfp !== undefined) {
-            const pfp = await this.getNft(profile.pfp)
+            const pfp = await this.getNft(profile.pfp, storage)
             return { nick: profile.nick, addr: profile.addr, pfp }
         } else {
             return { nick: profile.nick, addr: profile.addr, pfp: undefined }
@@ -278,10 +275,10 @@ export class AppHelper {
      */
     async listGames(registrationAddrs: string[]): Promise<GameAccount[]> {
         return (await Promise.all(registrationAddrs.map(async regAddr => {
-            const reg = await this.#transport.getRegistration(regAddr)
+            const reg = await this.__transport.getRegistration(regAddr)
             const gameAddrs = reg?.games.map(g => g.addr)
             if (gameAddrs) {
-                return await this.#transport.listGameAccounts(gameAddrs)
+                return await this.__transport.listGameAccounts(gameAddrs)
             } else {
                 console.warn(`No game found in registration: ${regAddr}`)
                 return []
@@ -294,29 +291,25 @@ export class AppHelper {
      *
      * @return A list of token info.
      */
-    async listTokens(tokenAddrs: string[]): Promise<Token[]> {
-        if (this.#storage === undefined) {
-            return await this.#transport.listTokens(tokenAddrs)
+    async listTokens(tokenAddrs: string[], storage?: IStorage): Promise<Token[]> {
+        if (!storage) {
+            return await this.__transport.listTokens(tokenAddrs)
         } else {
-            let res: Token[] = []
-            let queryAddrs: string[] = []
-            for (const addr of tokenAddrs) {
-                const cacheKey = makeTokenCacheKey(this.#transport.chain, addr)
-                const token = getTtlCache<Token>(this.#storage, cacheKey)
-                if (token !== undefined) {
-                    console.debug('Get token info from cache: %s', addr)
-                    res.push(token)
-                } else {
-                    queryAddrs.push(addr)
+            let tokens: Token[] = []
+            let cachedTokens = await storage.getTokens(tokenAddrs)
+
+            for (const token of cachedTokens) {
+                if (token) {
+                    console.debug('Cached token:', token)
+                    tokens.push(token)
                 }
             }
-            const queryRst = await this.#transport.listTokens(queryAddrs)
-            for (const token of queryRst) {
-                console.debug('Get token info from transport: %s', token.addr)
-                res.push(token)
-                setTtlCache(this.#storage, makeTokenCacheKey(this.#transport.chain, token.addr), token, TOKEN_CACHE_TTL)
-            }
-            return res
+            const cachedAddrs = tokens.map(token => token.addr)
+            const addrsToFetch = tokenAddrs.filter(addr => !cachedAddrs.includes(addr))
+            const fetchedTokens = await this.__transport.listTokens(addrsToFetch)
+            storage.cacheTokens(fetchedTokens)
+            tokens.push(...fetchedTokens)
+            return tokens
         }
     }
 
@@ -326,7 +319,7 @@ export class AppHelper {
      * @return A list of token info.
      */
     async listTokenBalance(walletAddr: string, tokenAddrs: string[]): Promise<TokenBalance[]> {
-        return await this.#transport.listTokenBalance(walletAddr, tokenAddrs)
+        return await this.__transport.listTokenBalance(walletAddr, tokenAddrs)
     }
 
     /**
@@ -338,7 +331,7 @@ export class AppHelper {
      * @return A list of nfts.
      */
     async listNfts(walletAddr: string, collection: string | undefined = undefined): Promise<Nft[]> {
-        const nfts = await this.#transport.listNfts(walletAddr)
+        const nfts = await this.__transport.listNfts(walletAddr)
         if (collection === undefined) {
             return nfts
         } else {
@@ -350,22 +343,21 @@ export class AppHelper {
      * Get NFT by address
      *
      * @param addr - The address of NFT
+     * @param storage - The storage for caching
      */
-    async getNft(addr: string): Promise<Nft | undefined> {
-        if (this.#storage === undefined) {
-            return await this.#transport.getNft(addr)
+    async getNft(addr: string, storage?: IStorage): Promise<Nft | undefined> {
+        if (!storage) {
+            return await this.__transport.getNft(addr)
         } else {
-            const cacheKey = makeNftCacheKey(this.#transport.chain, addr)
-            const cached = getTtlCache<Nft>(this.#storage, cacheKey)
-            if (cached !== undefined) {
-                return cached
-            } else {
-                const nft = await this.#transport.getNft(addr)
-                if (nft !== undefined) {
-                    setTtlCache(this.#storage, cacheKey, nft, NFT_CACHE_TTL)
-                }
-                return nft
+            const cachedNft = await storage.getNft(addr)
+            if (cachedNft) {
+                return cachedNft
             }
+            const nft = await this.__transport.getNft(addr)
+            if (nft) {
+                storage.cacheNft(nft)
+            }
+            return nft
         }
     }
 
@@ -375,40 +367,63 @@ export class AppHelper {
      * @param wallet - The wallet adapter to sign the transaction
      * @param gameAddr - The address of game account.
      */
-    claim(wallet: IWallet, recipientAddr: string): ResponseStream<RecipientClaimResponse, RecipientClaimError> {
+    claim(wallet: W, recipientAddr: string): ResponseStream<RecipientClaimResponse, RecipientClaimError> {
         const response = new ResponseHandle<RecipientClaimResponse, RecipientClaimError>()
-        this.#transport.recipientClaim(wallet, { recipientAddr }, response)
+        this.__transport.recipientClaim(wallet, { recipientAddr }, response)
         return response.stream()
     }
 
     async getRecipient(recipientAddr: string): Promise<RecipientAccount | undefined> {
-        return await this.#transport.getRecipient(recipientAddr)
+        return await this.__transport.getRecipient(recipientAddr)
     }
 
 
     /**
-     * Cache a game bundle in storage by its address or a game account.
+     * Initiates a join request for a game session. It exports a public key and
+     * sends a join request with required parameters like game address, amount,
+     * position, and whether to create a profile if needed. Returns a stream to
+     * handle the response of the join operation, which can either be a success
+     * (JoinResponse) or an error (JoinError).
+     *
+     * @param {JoinOpts} params - Options and parameters to configure the join request.
+     * @returns {ResponseStream<JoinResponse, JoinError>} A stream to handle the
+     * response of the join request.
      */
-    async cacheGameBundle(bundleAddr: string): Promise<void> {
-        if (this.#storage === undefined) {
-            throw new Error('Cannot cache game bundle without storage')
-        }
+    join(wallet: W, params: JoinOpts): ResponseStream<JoinResponse, JoinError> {
+        const response = new ResponseHandle<JoinResponse, JoinError>()
 
-        const bundleCacheKey = makeBundleCacheKey(this.#transport.chain, bundleAddr)
+        this.__transport.join(
+            wallet,
+            {
+                gameAddr: params.addr,
+                amount: params.amount,
+                position: params.position || 0,
+                verifyKey: params.keys.ec,
+                createProfileIfNeeded: params.createProfileIfNeeded,
+            },
+            response
+        )
 
-        const cached = getTtlCache<GameBundle>(this.#storage, bundleCacheKey)
 
-        if (cached !== undefined) {
-            console.info(`Game bundle cache available: ${bundleAddr}`)
-            return  // game bundle cached already
-        }
+        return response.stream()
+    }
 
-        const bundle = await this.#transport.getGameBundle(bundleAddr)
+    deposit(wallet: W, params: DepositOpts): ResponseStream<DepositResponse, DepositError> {
+        const response = new ResponseHandle<DepositResponse, DepositError>()
 
-        if (bundle !== undefined) {
-            console.info(`Cache game bundle: ${bundleAddr}`)
-            setTtlCache(this.#storage, bundleCacheKey, bundle, BUNDLE_CACHE_TTL)
-        }
+        this.__transport.getGameAccount(params.addr).then(gameAccount => {
+            this.__transport.deposit(
+                wallet,
+                {
+                    gameAddr: params.addr,
+                    amount: params.amount,
+                    settleVersion: gameAccount?.settleVersion || 0n, // SHOULD NEVER BE ZERO
+                },
+                response,
+            )
+        })
+
+        return response.stream()
     }
 
     /**
@@ -417,12 +432,12 @@ export class AppHelper {
      * @param wallet - The wallet adapter to sign the transaction
      * @param recipientAddr | recipientAccount - The address of a recipient account.
      */
-    previewClaim(wallet: IWallet, recipientAddr: string): Promise<ClaimPreview[]>
-    previewClaim(wallet: IWallet, recipientAccount: RecipientAccount): Promise<ClaimPreview[]>
-    async previewClaim(wallet: IWallet, recipient: RecipientAccount | string): Promise<ClaimPreview[]> {
+    previewClaim(wallet: W, recipientAddr: string): Promise<ClaimPreview[]>
+    previewClaim(wallet: W, recipientAccount: RecipientAccount): Promise<ClaimPreview[]>
+    async previewClaim(wallet: W, recipient: RecipientAccount | string): Promise<ClaimPreview[]> {
         try {
             if (typeof recipient === 'string') {
-                const r = await this.#transport.getRecipient(recipient)
+                const r = await this.__transport.getRecipient(recipient)
                 if (r === undefined) {
                     throw new Error('Recipient account not found')
                 }
@@ -439,7 +454,7 @@ export class AppHelper {
                     totalClaimed += share.claimAmount
                     totalWeights += share.weights
 
-                    if (share.owner.kind === 'assigned' && share.owner.addr === wallet.walletAddr) {
+                    if (share.owner.kind === 'assigned' && share.owner.addr === this.__transport.walletAddr(wallet)) {
                         weights += share.weights
                         claimed += share.claimAmount
                     }

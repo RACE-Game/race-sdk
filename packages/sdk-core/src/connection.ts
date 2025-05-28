@@ -12,7 +12,7 @@ export function __set_WebSocket_impl(ws: (new (url: string | URL) => WebSocket))
 }
 
 function createWebSocket(endpoint: string): WebSocket {
-    if (__WebSocket_impl === undefined && typeof window === 'undefined') {
+    if (typeof WebSocket === 'undefined' && __WebSocket_impl === undefined) {
         throw new Error('No websocket available. Call `setupNodeEnv()` to configure it.')
     } else if (__WebSocket_impl) {
         return new __WebSocket_impl(endpoint)
@@ -387,7 +387,6 @@ function makeReqNoSig<P>(target: string, method: Method, params: P): string {
 }
 
 function makeReqAddrs(method: Method, addrs: string[]): string {
-    console.debug(`Connection request[Addrs], method: ${method}, addrs:`, addrs)
     return JSON.stringify({
         jsonrpc: '2.0',
         method,

@@ -1,14 +1,11 @@
 import { Connection, GetCheckpointParams, IConnection } from './connection'
 import { GameContext } from './game-context'
-import { DepositError, DepositResponse, ITransport, JoinError, JoinResponse } from './transport'
-import { IWallet } from './wallet'
+import { ITransport } from './transport'
 import { Handler } from './handler'
-import { Encryptor, IEncryptor, sha256String } from './encryptor'
+import { Encryptor, IEncryptor, IPublicKeyRaws } from './encryptor'
 import { SdkError } from './error'
 import { Client } from './client'
-import { IStorage, getTtlCache, makeBundleCacheKey, setTtlCache } from './storage'
 import { DecryptionCache } from './decryption-cache'
-import { ProfileLoader } from './profile-loader'
 import { BaseClient } from './base-client'
 import { GameAccount, GameBundle, Token } from './accounts'
 import {
@@ -18,33 +15,32 @@ import {
     MessageCallbackFunction,
     TxStateCallbackFunction,
     PlayerProfileWithPfp,
-    ProfileCallbackFunction,
     ErrorCallbackFunction,
     ReadyCallbackFunction,
+    ProfileCallbackFunction,
 } from './types'
 import { SubClient } from './sub-client'
-import { Checkpoint, CheckpointOffChain } from './checkpoint'
-import { ResponseHandle, ResponseStream } from './response'
-import { BUNDLE_CACHE_TTL } from './common'
+import { Checkpoint } from './checkpoint'
+import { IProfileLoader, ProfileLoader } from './profile-loader'
+import { IStorage } from './storage'
 
 export type AppClientInitOpts = {
     transport: ITransport
-    wallet: IWallet
+    storage?: IStorage
     gameAddr: string
-    onProfile?: ProfileCallbackFunction
+    playerAddr: string
     onEvent: EventCallbackFunction
     onMessage?: MessageCallbackFunction
     onTxState?: TxStateCallbackFunction
     onError?: ErrorCallbackFunction
     onReady?: ReadyCallbackFunction
     onConnectionState?: ConnectionStateCallbackFunction
-    storage?: IStorage
+    onProfile?: ProfileCallbackFunction
     maxRetries?: number
 }
 
 export type SubClientInitOpts = {
     gameId: number
-    gameAddr: string
     onEvent: EventCallbackFunction
     onMessage?: MessageCallbackFunction
     onTxState?: TxStateCallbackFunction
@@ -53,56 +49,41 @@ export type SubClientInitOpts = {
     onReady?: ReadyCallbackFunction
 }
 
-export type JoinOpts = {
-    amount: bigint
-    position?: number
-    createProfileIfNeeded?: boolean
-}
-
-export type DepositOpts = {
-    amount: bigint
-}
-
 export type AppClientCtorOpts = {
     gameAddr: string
     gameAccount: GameAccount
+    playerAddr: string
     handler: Handler
-    wallet: IWallet
     client: Client
     transport: ITransport
+    storage?: IStorage
+    encryptor: IEncryptor
+    profileLoader: IProfileLoader
     connection: IConnection
     gameContext: GameContext
     onEvent: EventCallbackFunction
-    onMessage: MessageCallbackFunction | undefined
-    onTxState: TxStateCallbackFunction | undefined
-    onConnectionState: ConnectionStateCallbackFunction | undefined
-    onError: ErrorCallbackFunction | undefined
-    onReady: ReadyCallbackFunction | undefined
-    encryptor: IEncryptor
+    onMessage?: MessageCallbackFunction
+    onTxState?: TxStateCallbackFunction
+    onConnectionState?: ConnectionStateCallbackFunction
+    onError?: ErrorCallbackFunction
+    onReady?: ReadyCallbackFunction
     info: GameInfo
     decryptionCache: DecryptionCache
-    profileLoader: ProfileLoader
-    storage: IStorage | undefined
     endpoint: string
     maxRetries: number
 }
 
 export class AppClient extends BaseClient {
-    __profileLoader: ProfileLoader
-    __storage?: IStorage
     __endpoint: string
     __latestGameAccount: GameAccount
 
     constructor(opts: AppClientCtorOpts) {
         super({
-            onLoadProfile: (id, addr) => opts.profileLoader.load(id, addr),
             logPrefix: 'MainGame|',
             gameId: 0,
             latestCheckpointOnChain: opts.gameAccount.checkpointOnChain,
             ...opts,
         })
-        this.__profileLoader = opts.profileLoader
-        this.__storage = opts.storage
         this.__endpoint = opts.endpoint
         this.__latestGameAccount = opts.gameAccount
     }
@@ -110,16 +91,16 @@ export class AppClient extends BaseClient {
     static async initialize(opts: AppClientInitOpts): Promise<AppClient> {
         const {
             transport,
-            wallet,
+            storage,
+            playerAddr,
             gameAddr,
             onEvent,
             onMessage,
             onTxState,
             onConnectionState,
             onError,
-            onProfile,
             onReady,
-            storage,
+            onProfile,
             maxRetries,
         } = opts
 
@@ -128,8 +109,9 @@ export class AppClient extends BaseClient {
         console.group(`Initialize AppClient, gameAddr = ${gameAddr}`)
         try {
             let startTime = new Date().getTime()
-            const playerAddr = wallet.walletAddr
             console.info(`Player address: ${playerAddr}`)
+
+
             const gameAccount = await transport.getGameAccount(gameAddr)
             console.info('Game Account:', gameAccount)
             if (gameAccount === undefined) {
@@ -142,14 +124,12 @@ export class AppClient extends BaseClient {
                 throw SdkError.gameNotServed(gameAddr)
             }
 
-            const bundleCacheKey = makeBundleCacheKey(transport.chain, gameAccount.bundleAddr)
             let token: Token | undefined = await transport.getToken(gameAccount.tokenAddr)
 
             const [encryptor, gameBundle, transactorAccount] = await Promise.all([
                 Encryptor.create(playerAddr, storage),
-                getGameBundle(transport, storage, bundleCacheKey, gameAccount.bundleAddr),
+                getGameBundle(transport, gameAccount.bundleAddr),
                 transport.getServerAccount(transactorAddr),
-                transport.getToken(gameAccount.tokenAddr),
             ])
 
             if (transactorAddr === undefined || gameAccount.checkpointOnChain === undefined) {
@@ -161,6 +141,9 @@ export class AppClient extends BaseClient {
             const decryptionCache = new DecryptionCache()
             const endpoint = transactorAccount.endpoint
             const connection = Connection.initialize(gameAddr, playerAddr, endpoint, encryptor)
+            const profileLoader = new ProfileLoader(transport, onProfile)
+
+
             console.info(`Connected with transactor: ${endpoint}`)
             const client = new Client(playerAddr, encryptor, connection)
             console.info(`Client created`)
@@ -207,8 +190,6 @@ export class AppClient extends BaseClient {
                 }
             }
             const info = makeGameInfo(gameAccount, token)
-            const profileLoader = new ProfileLoader(transport, storage, onProfile)
-            profileLoader.start()
 
             const cost = new Date().getTime() - startTime;
             console.info(`Initialize cost ${cost} ms`)
@@ -217,7 +198,8 @@ export class AppClient extends BaseClient {
                 gameAddr,
                 gameAccount,
                 handler,
-                wallet,
+                storage,
+                playerAddr,
                 client,
                 transport,
                 connection,
@@ -232,7 +214,6 @@ export class AppClient extends BaseClient {
                 info,
                 decryptionCache,
                 profileLoader,
-                storage,
                 endpoint,
                 maxRetries: _maxRetries
             })
@@ -266,19 +247,18 @@ export class AppClient extends BaseClient {
 
             const bundleAddr = subGame.bundleAddr
 
-            const bundleCacheKey = makeBundleCacheKey(this.__transport.chain, bundleAddr)
             const decryptionCache = new DecryptionCache()
-            const playerAddr = this.__wallet.walletAddr
+            const playerAddr = this.__playerAddr
             const connection = Connection.initialize(addr, playerAddr, this.__endpoint, this.__encryptor)
             const client = new Client(playerAddr, this.__encryptor, connection)
-            const gameBundle = await getGameBundle(this.__transport, this.__storage, bundleCacheKey, bundleAddr)
+            const gameBundle = await getGameBundle(this.__transport, bundleAddr)
             const handler = await Handler.initialize(gameBundle, this.__encryptor, client, decryptionCache)
 
             const gameContext = this.__gameContext.subContext(subGame)
 
             return new SubClient({
                 gameAddr: addr,
-                wallet: this.__wallet,
+                playerAddr: this.__playerAddr,
                 transport: this.__transport,
                 encryptor: this.__encryptor,
                 onEvent,
@@ -296,6 +276,7 @@ export class AppClient extends BaseClient {
                 gameId,
                 latestCheckpointOnChain: undefined,
                 maxRetries: this.__maxRetries,
+                profileLoader: this.__profileLoader,
             })
         } finally {
             console.groupEnd()
@@ -306,14 +287,11 @@ export class AppClient extends BaseClient {
      * Connect to the transactor and retrieve the event stream.
      */
     async attachGame() {
-        let sub
         try {
             await this.__attachGameWithRetry()
             this.__startSubscribe()
-            for (const p of this.__latestGameAccount.players) {
-                console.log('Load profile for', p.addr)
-                this.__onLoadProfile(p.accessVersion, p.addr)
-            }
+            this.__profileLoader.load(this.__latestGameAccount.players.map(p => ({addr: p.addr, id: p.accessVersion})))
+
         } catch (e) {
             console.error(this.__logPrefix + 'Attaching game failed', e)
             this.__invokeErrorCallback('attach-failed')
@@ -343,12 +321,16 @@ export class AppClient extends BaseClient {
         return this.__profileLoader.getProfile(addr)
     }
 
+    async getEncryptorPublicKeys(): Promise<IPublicKeyRaws> {
+        return await this.__encryptor.exportPublicKey()
+    }
+
     /**
      * Return if current player is in game.
      */
     isInGame(): boolean {
         try {
-            const playerId = this.addrToId(this.__wallet.walletAddr)
+            const playerId = this.addrToId(this.__playerAddr)
             if (this.__gameContext.players.find(p => p.id === playerId) !== undefined) {
                 return true
             }
@@ -362,79 +344,18 @@ export class AppClient extends BaseClient {
         return `${this.__gameAddr}:${gameId}`
     }
 
-    /**
-     * Initiates a join request for a game session. It exports a public key and
-     * sends a join request with required parameters like game address, amount,
-     * position, and whether to create a profile if needed. Returns a stream to
-     * handle the response of the join operation, which can either be a success
-     * (JoinResponse) or an error (JoinError).
-     *
-     * @param {JoinOpts} params - Options and parameters to configure the join request.
-     * @returns {ResponseStream<JoinResponse, JoinError>} A stream to handle the
-     * response of the join request.
-     */
-    join(params: JoinOpts): ResponseStream<JoinResponse, JoinError> {
-        const response = new ResponseHandle<JoinResponse, JoinError>()
-
-        this.__encryptor.exportPublicKey().then(publicKey => {
-            this.__transport.join(
-                this.__wallet,
-                {
-                    gameAddr: this.gameAddr,
-                    amount: params.amount,
-                    position: params.position || 0,
-                    verifyKey: publicKey.ec,
-                    createProfileIfNeeded: params.createProfileIfNeeded,
-                },
-                response
-            )
-        })
-
-        return response.stream()
-    }
-
-    deposit(params: DepositOpts): ResponseStream<DepositResponse, DepositError> {
-        const response = new ResponseHandle<DepositResponse, DepositError>()
-
-        this.__getGameAccount().then(gameAccount => {
-            this.__transport.deposit(
-                this.__wallet,
-                {
-                    gameAddr: this.gameAddr,
-                    amount: params.amount,
-                    settleVersion: gameAccount.settleVersion,
-                },
-                response
-            )
-        })
-
-        return response.stream()
-    }
 }
 
 // Miscellaneous
 
-export async function getGameBundle(
-    transport: ITransport,
-    storage: IStorage | undefined,
-    bundleCacheKey: string,
+export async function getGameBundle<W>(
+    transport: ITransport<W>,
     bundleAddr: string
 ): Promise<GameBundle> {
-    let gameBundle: GameBundle | undefined
-    if (storage !== undefined) {
-        gameBundle = getTtlCache(storage, bundleCacheKey)
-        console.debug('Use game bundle from cache:', gameBundle)
-        if (gameBundle !== undefined) {
-            Object.assign(gameBundle, { data: Uint8Array.of() })
-        }
-    }
-    if (gameBundle === undefined) {
-        gameBundle = await transport.getGameBundle(bundleAddr)
-        console.debug('Game bundle:', gameBundle)
-        if (gameBundle !== undefined && storage !== undefined && gameBundle.data.length === 0) {
-            setTtlCache(storage, bundleCacheKey, gameBundle, BUNDLE_CACHE_TTL)
-        }
-    }
+
+    let gameBundle = await transport.getGameBundle(bundleAddr)
+    console.debug('Game bundle:', gameBundle)
+
     if (gameBundle === undefined) {
         throw SdkError.gameBundleNotFound(bundleAddr)
     }

@@ -7,27 +7,20 @@ import {
     CloseGameAccountResponse,
     CreateGameAccountParams,
     CreatePlayerProfileParams,
-    CreateRegistrationParams,
     DepositParams,
     GameAccount,
     GameBundle,
     Nft,
-    IStorage,
     Token,
     ITransport,
-    IWallet,
     JoinParams,
     PlayerProfile,
-    PublishGameParams,
     RecipientAccount,
     RecipientClaimParams,
     RegisterGameParams,
     RegistrationAccount,
-    RegistrationWithGames,
     ServerAccount,
-    SendTransactionResult,
     UnregisterGameParams,
-    VoteParams,
     ResponseHandle,
     CreateGameResponse,
     CreateGameError,
@@ -47,8 +40,8 @@ import {
     TokenBalance,
     RecipientSlotInit,
     RecipientSlotShareInit,
+    Result,
 } from '@race-foundation/sdk-core'
-import { Chain } from './common'
 import { CoinStruct, ObjectOwner, SuiClient, SuiObjectResponse } from '@mysten/sui/client'
 import { Transaction, TransactionObjectArgument } from '@mysten/sui/transactions'
 import {
@@ -70,16 +63,16 @@ import {
     SUI_ICON_URL,
 } from './constants'
 import {
-    coerceWallet,
     getOwnedObjectRef,
     getSharedObjectRef,
     parseFirstObjectResponse,
-    parseMultiObjectResponse,
     parseObjectData,
     parseSingleObjectResponse,
     resolveObjectCreatedByType,
     resolveObjectMutatedByType,
 } from './misc'
+import { WalletAdapter } from '@suiet/wallet-sdk'
+import { SuiSignAndExecuteTransactionOutput } from '@mysten/wallet-standard'
 
 function getProfileStructType(packageId: string): string {
     return `${packageId}::${PROFILE_MODULE_STRUCT}`
@@ -93,7 +86,7 @@ function getServerStructType(packageId: string): string {
     return `${packageId}::${SERVER_MODULE_STRUCT}`
 }
 
-export class SuiTransport implements ITransport {
+export class SuiTransport implements ITransport<WalletAdapter> {
     suiClient: SuiClient
     packageId: string
 
@@ -103,20 +96,18 @@ export class SuiTransport implements ITransport {
         this.packageId = packageId
     }
 
-    get chain(): Chain {
-        return 'sui'
+    walletAddr(wallet: WalletAdapter): string {
+        return wallet.accounts[0].address
     }
 
     async createGameAccount(
-        wallet: IWallet,
+        wallet: WalletAdapter,
         params: CreateGameAccountParams,
         resp: ResponseHandle<CreateGameResponse, CreateGameError>
     ): Promise<void> {
         if (params.title.length > MAXIMUM_TITLE_LENGTH) {
             return resp.failed('invalid-title')
         }
-
-        coerceWallet(wallet)
 
         const suiClient = this.suiClient
         const transaction = new Transaction()
@@ -127,7 +118,7 @@ export class SuiTransport implements ITransport {
         let create_game_args = [
             transaction.pure.string(params.title),
             transaction.pure.address(params.bundleAddr),
-            transaction.pure.address(wallet.walletAddr),
+            transaction.pure.address(this.walletAddr(wallet)),
             transaction.pure.address(recipientAddr),
             transaction.pure.string(params.tokenAddr),
             transaction.pure.u16(params.maxPlayers),
@@ -169,7 +160,7 @@ export class SuiTransport implements ITransport {
             typeArguments: [params.tokenAddr],
         })
 
-        const result = await wallet.send(transaction, suiClient, resp)
+        const result = await send(wallet, transaction, suiClient, resp)
 
         if ('err' in result) {
             return resp.transactionFailed(result.err)
@@ -186,15 +177,14 @@ export class SuiTransport implements ITransport {
     }
 
     async createPlayerProfile(
-        wallet: IWallet,
+        wallet: WalletAdapter,
         params: CreatePlayerProfileParams,
         resp: ResponseHandle<CreatePlayerProfileResponse, CreatePlayerProfileError>
     ): Promise<void> {
-        coerceWallet(wallet)
 
         const suiClient = this.suiClient
 
-        const exist = await this.getPlayerProfile(wallet.walletAddr)
+        const exist = await this.getPlayerProfile(this.walletAddr(wallet))
 
         const transaction = new Transaction()
 
@@ -215,7 +205,7 @@ export class SuiTransport implements ITransport {
                     transaction.pure.option('address', params.pfp),
                 ],
             })
-            const result = await wallet.send(transaction, suiClient, resp)
+            const result = await send(wallet, transaction, suiClient, resp)
             if ('err' in result) {
                 return resp.transactionFailed(result.err)
             }
@@ -226,7 +216,7 @@ export class SuiTransport implements ITransport {
                 target: `${this.packageId}::profile::create_profile`,
                 arguments: [transaction.pure.string(params.nick), transaction.pure.option('address', params.pfp)],
             })
-            const result = await wallet.send(transaction, suiClient, resp)
+            const result = await send(wallet, transaction, suiClient, resp)
             if ('err' in result) {
                 return resp.transactionFailed(result.err)
             }
@@ -236,7 +226,7 @@ export class SuiTransport implements ITransport {
 
         if (objectChange) {
             return resp.succeed({
-                profile: { nick: params.nick, pfp: params.pfp, addr: wallet.walletAddr },
+                profile: { nick: params.nick, pfp: params.pfp, addr: this.walletAddr(wallet) },
                 signature: objectChange.digest,
             })
         } else {
@@ -263,24 +253,23 @@ export class SuiTransport implements ITransport {
     }
 
     closeGameAccount(
-        wallet: IWallet,
-        params: CloseGameAccountParams,
-        resp: ResponseHandle<CloseGameAccountResponse, CloseGameAccountError>
+        _wallet: WalletAdapter,
+        _params: CloseGameAccountParams,
+        _resp: ResponseHandle<CloseGameAccountResponse, CloseGameAccountError>
     ): Promise<void> {
         throw new Error('Method not implemented.')
     }
 
-    async join(wallet: IWallet, params: JoinParams, resp: ResponseHandle<JoinResponse, JoinError>): Promise<void> {
+    async join(wallet: WalletAdapter, params: JoinParams, resp: ResponseHandle<JoinResponse, JoinError>): Promise<void> {
         const { gameAddr, amount, position, verifyKey, createProfileIfNeeded = false } = params
 
         const suiClient = this.suiClient
-        coerceWallet(wallet)
 
-        const playerProfile = await this.getPlayerProfile(wallet.walletAddr)
+        const playerProfile = await this.getPlayerProfile(this.walletAddr(wallet))
 
         if (playerProfile === undefined && createProfileIfNeeded) {
             let res = new ResponseHandle<CreatePlayerProfileResponse, CreatePlayerProfileError>()
-            await this.createPlayerProfile(wallet, { nick: wallet.walletAddr.substring(0, 6) }, res)
+            await this.createPlayerProfile(wallet, { nick: this.walletAddr(wallet).substring(0, 6) }, res)
         }
 
         // get game object for token info and object ref
@@ -304,7 +293,7 @@ export class SuiTransport implements ITransport {
 
         const transaction = new Transaction()
 
-        const coinsResp = await suiClient.getCoins({ owner: wallet.walletAddr, coinType: game.tokenAddr })
+        const coinsResp = await suiClient.getCoins({ owner: this.walletAddr(wallet), coinType: game.tokenAddr })
 
         let coins = coinsResp.data
 
@@ -355,7 +344,7 @@ export class SuiTransport implements ITransport {
             typeArguments: [game.tokenAddr],
         })
 
-        const result = await wallet.send(transaction, suiClient, resp)
+        const result = await send(wallet, transaction, suiClient, resp)
         if ('err' in result) {
             return resp.transactionFailed(result.err)
         }
@@ -364,25 +353,23 @@ export class SuiTransport implements ITransport {
     }
 
     async deposit(
-        wallet: IWallet,
-        params: DepositParams,
-        resp: ResponseHandle<DepositResponse, DepositError>
+        _wallet: WalletAdapter,
+        _params: DepositParams,
+        _resp: ResponseHandle<DepositResponse, DepositError>
     ): Promise<void> {
         const transaction = new Transaction()
         const suiClient = this.suiClient
-        coerceWallet(wallet)
 
         throw new Error('Method not implemented.')
     }
 
     async createRecipient(
-        wallet: IWallet,
+        wallet: WalletAdapter,
         params: CreateRecipientParams,
         resp: ResponseHandle<CreateRecipientResponse, CreateRecipientError>
     ): Promise<void> {
         const transaction = new Transaction()
         const suiClient = this.suiClient
-        coerceWallet(wallet)
         // 1. make move call to `new_recipient_builder` to get a hot potato
         let builder = transaction.moveCall({
             target: `${this.packageId}::recipient::new_recipient_builder`,
@@ -444,20 +431,19 @@ export class SuiTransport implements ITransport {
         })
         transaction.moveCall({
             target: `${this.packageId}::recipient::create_recipient`,
-            arguments: [transaction.pure.option('address', wallet.walletAddr), builder],
+            arguments: [transaction.pure.option('address', this.walletAddr(wallet)), builder],
         })
-        const result = await wallet.send(transaction, suiClient, resp)
+        const result = await send(wallet, transaction, suiClient, resp)
         if ('err' in result) {
             return resp.transactionFailed(result.err)
         }
     }
 
     async registerGame(
-        wallet: IWallet,
+        wallet: WalletAdapter,
         params: RegisterGameParams,
         resp: ResponseHandle<RegisterGameResponse, RegisterGameError>
     ): Promise<void> {
-        coerceWallet(wallet)
         const transaction = new Transaction()
         const suiClient = this.suiClient
         const objectsRes: SuiObjectResponse[] = await suiClient.multiGetObjects({
@@ -513,7 +499,7 @@ export class SuiTransport implements ITransport {
                 }),
             ],
         })
-        const result = await wallet.send(transaction, suiClient, resp)
+        const result = await send(wallet, transaction, suiClient, resp)
         if ('err' in result) {
             return resp.transactionFailed(result.err)
         }
@@ -523,7 +509,7 @@ export class SuiTransport implements ITransport {
         })
     }
     // todo contract
-    unregisterGame(wallet: IWallet, params: UnregisterGameParams, resp: ResponseHandle): Promise<void> {
+    unregisterGame(_wallet: WalletAdapter, _params: UnregisterGameParams, _resp: ResponseHandle): Promise<void> {
         throw new Error('Method not implemented.')
     }
     async getGameAccount(addr: string): Promise<GameAccount | undefined> {
@@ -659,7 +645,7 @@ export class SuiTransport implements ITransport {
         return tokens
     }
 
-    async listTokenBalance(walletAddr: string, tokenAddrs: string[], storage?: IStorage): Promise<TokenBalance[]> {
+    async listTokenBalance(walletAddr: string, tokenAddrs: string[]): Promise<TokenBalance[]> {
         return (await this.suiClient.getAllBalances({ owner: walletAddr }))
             .map(b => ({
                 addr: b.coinType,
@@ -711,18 +697,27 @@ export class SuiTransport implements ITransport {
         return nfts
     }
     recipientClaim(
-        wallet: IWallet,
-        params: RecipientClaimParams,
-        resp: ResponseHandle<RecipientClaimResponse, RecipientClaimError>
+        _wallet: WalletAdapter,
+        _params: RecipientClaimParams,
+        _resp: ResponseHandle<RecipientClaimResponse, RecipientClaimError>
     ): Promise<void> {
         throw new Error('Method not implemented.')
     }
 
     attachBonus(
-        wallet: IWallet,
-        params: AttachBonusParams,
-        resp: ResponseHandle<AttachBonusResponse, AttachBonusError>
+        _wallet: WalletAdapter,
+        _params: AttachBonusParams,
+        _resp: ResponseHandle<AttachBonusResponse, AttachBonusError>
     ): Promise<void> {
         throw new Error('Method not implemented.')
     }
+}
+
+async function send<T, E>(wallet: WalletAdapter, transaction: Transaction, _: SuiClient, resp: ResponseHandle<T, E>): Promise<Result<SuiSignAndExecuteTransactionOutput, string>> {
+    resp.waitingWallet()
+
+    const result = await wallet.features['sui:signAndExecuteTransaction'].signAndExecuteTransaction({
+        transaction, account: wallet.accounts[0]
+    })
+    return { ok: result }
 }

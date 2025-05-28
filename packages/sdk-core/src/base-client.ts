@@ -9,11 +9,9 @@ import {
 import { EventEffects, GameContext } from './game-context'
 import { GameContextSnapshot } from './game-context-snapshot'
 import { ITransport } from './transport'
-import { IWallet } from './wallet'
 import { Handler } from './handler'
 import { IEncryptor, sha256String } from './encryptor'
 import { GameAccount } from './accounts'
-import { PlayerConfirming } from './tx-state'
 import { Client } from './client'
 import { Custom, GameEvent, ICustomEvent } from './events'
 import { DecryptionCache } from './decryption-cache'
@@ -24,7 +22,6 @@ import {
     EventCallbackFunction,
     EventCallbackOptions,
     GameInfo,
-    LoadProfileCallbackFunction,
     MessageCallbackFunction,
     ReadyCallbackFunction,
     TxStateCallbackFunction,
@@ -40,6 +37,7 @@ import {
 import { InitAccount } from './init-account'
 import { CheckpointOnChain } from './checkpoint'
 import { SdkError } from './error'
+import { IProfileLoader } from './profile-loader'
 
 const MAX_RETRIES = 3
 
@@ -51,21 +49,21 @@ export type InitState = {
 export type BaseClientCtorOpts = {
     gameAddr: string
     gameId: number
+    playerAddr: string
     handler: Handler
-    wallet: IWallet
     client: Client
     transport: ITransport
+    encryptor: IEncryptor
+    profileLoader: IProfileLoader
     connection: IConnection
     gameContext: GameContext
     latestCheckpointOnChain: CheckpointOnChain | undefined
     onEvent: EventCallbackFunction
-    onMessage: MessageCallbackFunction | undefined
-    onTxState: TxStateCallbackFunction | undefined
-    onConnectionState: ConnectionStateCallbackFunction | undefined
-    onError: ErrorCallbackFunction | undefined
-    onLoadProfile: LoadProfileCallbackFunction
-    onReady: ReadyCallbackFunction | undefined
-    encryptor: IEncryptor
+    onMessage?: MessageCallbackFunction
+    onTxState?: TxStateCallbackFunction
+    onConnectionState?: ConnectionStateCallbackFunction
+    onError?: ErrorCallbackFunction
+    onReady?: ReadyCallbackFunction
     info: GameInfo
     decryptionCache: DecryptionCache
     logPrefix: string
@@ -75,8 +73,8 @@ export type BaseClientCtorOpts = {
 export class BaseClient {
     __gameAddr: string
     __gameId: number
+    __playerAddr: string
     __handler: Handler
-    __wallet: IWallet
     __client: Client
     __transport: ITransport
     __connection: IConnection
@@ -87,7 +85,7 @@ export class BaseClient {
     __onTxState?: TxStateCallbackFunction
     __onError?: ErrorCallbackFunction
     __onConnectionState?: ConnectionStateCallbackFunction
-    __onLoadProfile: LoadProfileCallbackFunction
+    __profileLoader: IProfileLoader
     __encryptor: IEncryptor
     __info: GameInfo
     __decryptionCache: DecryptionCache
@@ -102,7 +100,7 @@ export class BaseClient {
         this.__gameId = opts.gameId
         this.__latestCheckpointOnChain = opts.latestCheckpointOnChain
         this.__handler = opts.handler
-        this.__wallet = opts.wallet
+        this.__playerAddr = opts.playerAddr
         this.__client = opts.client
         this.__transport = opts.transport
         this.__connection = opts.connection
@@ -113,10 +111,10 @@ export class BaseClient {
         this.__onError = opts.onError
         this.__onReady = opts.onReady
         this.__onConnectionState = opts.onConnectionState
+        this.__profileLoader = opts.profileLoader
         this.__encryptor = opts.encryptor
         this.__info = opts.info
         this.__decryptionCache = opts.decryptionCache
-        this.__onLoadProfile = opts.onLoadProfile
         this.__logPrefix = opts.logPrefix
         this.__sub == undefined
         this.__closed = false
@@ -124,7 +122,7 @@ export class BaseClient {
     }
 
     get playerAddr(): string {
-        return this.__wallet.walletAddr
+        return this.__playerAddr
     }
 
     /**
@@ -133,7 +131,7 @@ export class BaseClient {
      */
     get playerId(): bigint | undefined {
         try {
-            return this.__gameContext.addrToId(this.__wallet.walletAddr)
+            return this.__gameContext.addrToId(this.playerAddr)
         } catch (e) {
             return undefined
         }
@@ -250,7 +248,7 @@ export class BaseClient {
     }
 
     async __invokeEventCallback(event: GameEvent, options: EventCallbackOptions) {
-        const snapshot = new GameContextSnapshot(this.__gameContext)
+        const snapshot = new GameContextSnapshot(this.__gameContext, this.__decryptionCache)
         const state = this.__gameContext.handlerState
         this.__onEvent(snapshot, state, event, options)
     }
@@ -365,8 +363,8 @@ export class BaseClient {
             for (const node of frame.newPlayers) {
                 this.__gameContext.addNode(node.addr, node.accessVersion, 'player')
                 console.info('Load profile for:', node.addr)
-                this.__onLoadProfile(node.accessVersion, node.addr)
             }
+            this.__profileLoader.load(frame.newPlayers.map(p => ({addr: p.addr, id: p.accessVersion})))
             this.__gameContext.setAccessVersion(frame.accessVersion)
         } finally {
             console.groupEnd()
@@ -389,12 +387,6 @@ export class BaseClient {
             try {
                 if (this.__onTxState !== undefined) {
                     const { txState } = frame
-                    if (txState instanceof PlayerConfirming) {
-                        txState.confirmPlayers.forEach(p => {
-                            console.info('Load profile for:', p.addr)
-                            this.__onLoadProfile(p.id, p.addr)
-                        })
-                    }
                     this.__onTxState(txState)
                 }
             } finally {
@@ -441,7 +433,7 @@ export class BaseClient {
                 }
                 // Call onReady to indicate all backlogs are consumed
                 if (this.__onReady !== undefined) {
-                    const snapshot = new GameContextSnapshot(this.__gameContext)
+                    const snapshot = new GameContextSnapshot(this.__gameContext, this.__decryptionCache)
                     const state = this.__gameContext.handlerState
                     this.__onReady(snapshot, state)
                 } else {

@@ -1,4 +1,3 @@
-import { IWallet } from './wallet'
 import {
     GameAccount,
     GameBundle,
@@ -7,15 +6,15 @@ import {
     RegistrationAccount,
     Nft,
     Token,
-    RegistrationWithGames,
     RecipientAccount,
     EntryType,
     TokenBalance,
     PlayerProfile,
 } from './accounts'
-import { IStorage } from './storage'
 import { ResponseHandle } from './response'
-import { Chain } from './common'
+import { Result } from './types'
+
+export type SendTransactionResult<Sig> = Result<Sig, any>
 
 export type RecipientSlotOwnerInit = { addr: string } | { identifier: string }
 
@@ -185,48 +184,51 @@ export type CloseGameAccountError =
 
 export type AttachBonusError = 'bonuses-is-full' | 'game-not-found' | 'too-much-bonuses'
 
-export interface ITransport {
-    get chain(): Chain
+export interface ITransport<W=never> {
+
+    walletAddr(wallet: W): string
 
     createGameAccount(
-        wallet: IWallet,
+        wallet: W,
         params: CreateGameAccountParams,
         resp: ResponseHandle<CreateGameResponse, CreateGameError>
     ): Promise<void>
 
-    closeGameAccount(wallet: IWallet, params: CloseGameAccountParams, resp: ResponseHandle<CloseGameAccountResponse, CloseGameAccountError>): Promise<void>
+    closeGameAccount(wallet: W, params: CloseGameAccountParams, resp: ResponseHandle<CloseGameAccountResponse, CloseGameAccountError>): Promise<void>
 
-    join(wallet: IWallet, params: JoinParams, resp: ResponseHandle<JoinResponse, JoinError>): Promise<void>
+    join(wallet: W, params: JoinParams, resp: ResponseHandle<JoinResponse, JoinError>): Promise<void>
 
-    deposit(wallet: IWallet, params: DepositParams, resp: ResponseHandle<DepositResponse, DepositError>): Promise<void>
+    deposit(wallet: W, params: DepositParams, resp: ResponseHandle<DepositResponse, DepositError>): Promise<void>
 
-    // vote(wallet: IWallet, params: VoteParams): Promise<TransactionResult<void>>
+    // vote(wallet: W, params: VoteParams): Promise<TransactionResult<void>>
 
     createPlayerProfile(
-        wallet: IWallet,
+        wallet: W,
         params: CreatePlayerProfileParams,
         resp: ResponseHandle<CreatePlayerProfileResponse, CreatePlayerProfileError>
     ): Promise<void>
 
     createRecipient(
-        wallet: IWallet,
+        wallet: W,
         params: CreateRecipientParams,
         resp: ResponseHandle<CreateRecipientResponse, CreateRecipientError>
     ): Promise<void>
 
-    // publishGame(wallet: IWallet, params: PublishGameParams): Promise<TransactionResult<string>>
-
-    // createRegistration(wallet: IWallet, params: CreateRegistrationParams): Promise<TransactionResult<string>>
-
     registerGame(
-        wallet: IWallet,
+        wallet: W,
         params: RegisterGameParams,
         resp: ResponseHandle<RegisterGameResponse, RegisterGameError>
     ): Promise<void>
 
-    attachBonus(wallet: IWallet, params: AttachBonusParams, resp: ResponseHandle<AttachBonusResponse, AttachBonusError>): Promise<void>;
+    recipientClaim(
+        wallet: W,
+        params: RecipientClaimParams,
+        resp: ResponseHandle<RecipientClaimResponse, RecipientClaimError>
+    ): Promise<void>
 
-    unregisterGame(wallet: IWallet, params: UnregisterGameParams, resp: ResponseHandle): Promise<void>
+    attachBonus(wallet: W, params: AttachBonusParams, resp: ResponseHandle<AttachBonusResponse, AttachBonusError>): Promise<void>;
+
+    unregisterGame(wallet: W, params: UnregisterGameParams, resp: ResponseHandle): Promise<void>
 
     getGameAccount(addr: string): Promise<GameAccount | undefined>
 
@@ -252,13 +254,7 @@ export interface ITransport {
 
     listTokens(tokenAddrs: string[]): Promise<Token[]>
 
-    listTokenBalance(walletAddr: string, tokenAddrs: string[], storage?: IStorage): Promise<TokenBalance[]>
+    listTokenBalance(walletAddr: string, tokenAddrs: string[]): Promise<TokenBalance[]>
 
     listNfts(walletAddr: string): Promise<Nft[]>
-
-    recipientClaim(
-        wallet: IWallet,
-        params: RecipientClaimParams,
-        resp: ResponseHandle<RecipientClaimResponse, RecipientClaimError>
-    ): Promise<void>
 }

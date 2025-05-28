@@ -10,21 +10,14 @@ import {
 } from '@mysten/sui/client'
 import { SharedObjectRef } from '@mysten/sui/dist/cjs/bcs/types'
 import {
-    IWallet,
     ResponseHandle,
 } from '@race-foundation/sdk-core'
 import { LocalSuiWallet } from './local-wallet'
 import { ISigner, TxResult } from './signer'
-import { SuiWallet } from './sui-wallet'
+
 import {
     Parser,
 } from './types'
-
-export function coerceWallet(wallet: IWallet): asserts wallet is ISigner {
-    if (!(wallet instanceof LocalSuiWallet) && !(wallet instanceof SuiWallet)) {
-        throw new Error('Invalid wallet instance passed')
-    }
-}
 
 export async function resolveObjectCreatedByType(
     suiClient: SuiClient,
