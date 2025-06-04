@@ -23,6 +23,7 @@ import { SubClient } from './sub-client'
 import { Checkpoint } from './checkpoint'
 import { IProfileLoader, ProfileLoader } from './profile-loader'
 import { IStorage } from './storage'
+import { GameContextSnapshot } from './game-context-snapshot'
 
 export type AppClientInitOpts = {
     transport: ITransport
@@ -107,6 +108,7 @@ export class AppClient extends BaseClient {
         const _maxRetries = maxRetries === undefined ? 10 : maxRetries
 
         console.group(`Initialize AppClient, gameAddr = ${gameAddr}`)
+
         try {
             let startTime = new Date().getTime()
             console.info(`Player address: ${playerAddr}`)
@@ -192,7 +194,14 @@ export class AppClient extends BaseClient {
             const info = makeGameInfo(gameAccount, token)
 
             const cost = new Date().getTime() - startTime;
-            console.info(`Initialize cost ${cost} ms`)
+            console.info(`Initialization costed ${cost} ms`)
+
+            const onReadyWithLoadingProfile = (ctx: GameContextSnapshot, state: Uint8Array) => {
+                profileLoader.load(gameAccount.players.map(p => ({addr: p.addr, id: p.accessVersion})))
+                if (onReady !== undefined) {
+                    onReady(ctx, state)
+                }
+            }
 
             return new AppClient({
                 gameAddr,
@@ -209,7 +218,7 @@ export class AppClient extends BaseClient {
                 onTxState,
                 onConnectionState,
                 onError,
-                onReady,
+                onReady: onReadyWithLoadingProfile,
                 encryptor,
                 info,
                 decryptionCache,
@@ -290,8 +299,6 @@ export class AppClient extends BaseClient {
         try {
             await this.__attachGameWithRetry()
             this.__startSubscribe()
-            this.__profileLoader.load(this.__latestGameAccount.players.map(p => ({addr: p.addr, id: p.accessVersion})))
-
         } catch (e) {
             console.error(this.__logPrefix + 'Attaching game failed', e)
             this.__invokeErrorCallback('attach-failed')
