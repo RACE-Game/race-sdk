@@ -31,6 +31,7 @@ import {
     TransactionSendingSigner,
     TransactionSendingSignerConfig,
     SignatureBytes,
+    MaybeAccount,
 } from '@solana/web3.js'
 import * as SPL from '@solana-program/token'
 import {
@@ -1111,53 +1112,53 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         return tokens.filter((t): t is Token => t !== undefined)
     }
 
+
+    async __fetchAllToken(walletAddr: Address, mintAddrs: Address[]): Promise<MaybeAccount<SPL.Token, string>[]> {
+        const atas = await Promise.all(mintAddrs.map(mint => SPL.findAssociatedTokenPda({ owner: walletAddr, tokenProgram: SPL.TOKEN_PROGRAM_ADDRESS, mint})))
+        const tokens = SPL.fetchAllMaybeToken(this.#rpc, atas.map(([ata]) => ata))
+        return tokens
+    }
+
     /**
      * List tokens.
      */
     async listTokenBalance(rawWalletAddr: string, rawMintAddrs: string[]): Promise<TokenBalance[]> {
-        if (rawMintAddrs.length > 30) {
+        if (rawMintAddrs.length > 100) {
             throw new Error('Too many token addresses in a row')
         }
         const walletAddr = address(rawWalletAddr)
         const mintAddrs = rawMintAddrs.map(a => address(a))
         const rpc = this.#rpc
 
-        const queryBalanceTasks = mintAddrs.map(async mintAddr => {
-            if (mintAddr == NATIVE_MINT) {
-                const resp = await rpc.getBalance(walletAddr).send()
-                if (resp !== null) {
-                    return {
-                        addr: mintAddr,
-                        amount: resp.value,
-                    }
-                } else {
-                    return {
-                        addr: mintAddr,
-                        amount: 0n,
-                    }
-                }
-            } else {
-                const [ata] = await SPL.findAssociatedTokenPda({
-                    owner: walletAddr,
-                    tokenProgram: SPL.TOKEN_PROGRAM_ADDRESS,
-                    mint: mintAddr,
-                })
-                const token = await SPL.fetchMaybeToken(this.#rpc, ata)
-                if (token.exists) {
-                    return {
-                        addr: mintAddr,
-                        amount: token.data.amount,
-                    }
-                } else {
-                    return {
-                        addr: mintAddr,
-                        amount: 0n,
-                    }
-                }
-            }
-        })
+        const [getBalanceResp, getAllMaybeTokenResp] = await Promise.all([
+            rpc.getBalance(walletAddr).send(),
+            this.__fetchAllToken(walletAddr, mintAddrs)
+        ])
 
-        return await Promise.all(queryBalanceTasks)
+        let result = [];
+
+        for (let i = 0; i < mintAddrs.length; i++) {
+            const mintAddr = mintAddrs[i]
+            const token = getAllMaybeTokenResp[i]
+            if (mintAddr === NATIVE_MINT) {
+                result.push({
+                    addr: NATIVE_MINT,
+                    amount: getBalanceResp.value
+                })
+            } else if (token.exists) {
+                result.push({
+                    addr: mintAddr,
+                    amount: token.data.amount
+                })
+            } else {
+                result.push({
+                    addr: mintAddr,
+                    amount: 0n
+                })
+            }
+        }
+
+        return result
     }
 
     async getNft(addr: Address): Promise<Nft | undefined> {
