@@ -364,7 +364,7 @@ export class BaseClient {
                 this.__gameContext.addNode(node.addr, node.accessVersion, 'player')
                 console.info('Load profile for:', node.addr)
             }
-            this.__profileLoader.load(frame.newPlayers.map(p => ({addr: p.addr, id: p.accessVersion})))
+            this.__profileLoader.load(frame.newPlayers.map(p => p.addr))
             this.__gameContext.setAccessVersion(frame.accessVersion)
         } finally {
             console.groupEnd()

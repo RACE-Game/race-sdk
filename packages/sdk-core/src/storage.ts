@@ -1,8 +1,9 @@
 import { Nft, Token } from "./accounts"
 import { EncryptorExportedKeys } from "./encryptor"
+import { PlayerProfileWithPfp } from "./types"
 
 const DB_KEY = 'race-protocol'
-const DB_VER = 1
+const DB_VER = 2
 
 export interface IStorage {
     cacheTokens(tokens: Token[]): void
@@ -16,6 +17,10 @@ export interface IStorage {
     cacheEncryptorKeys(keys: EncryptorExportedKeys): void
 
     getEncryptorKeys(playerAddr: string): Promise<EncryptorExportedKeys | undefined>
+
+    cacheProfile(profile: PlayerProfileWithPfp): void
+
+    getProfile(profileAddr: string): Promise<PlayerProfileWithPfp | undefined>
 }
 
 export class Storage implements IStorage {
@@ -37,11 +42,54 @@ export class Storage implements IStorage {
                 db.createObjectStore('nfts', { keyPath: 'addr' })
             }
 
+            if (!db.objectStoreNames.contains('profiles')) {
+                console.debug(`Storage: creating object store "profiles" in IndexedDB`)
+                db.createObjectStore('profiles', { keyPath: 'addr' })
+            }
+
             if (!db.objectStoreNames.contains('encryptor-keys')) {
                 console.debug(`Storage: creating object store "encryptor-keys" in IndexedDB`)
                 db.createObjectStore('encryptor-keys', { keyPath: 'playerAddr' })
             }
         }
+    }
+
+    cacheProfile(profile: PlayerProfileWithPfp): void {
+        const request = indexedDB.open(DB_KEY, DB_VER)
+
+        request.onsuccess = _e => {
+            let db = request.result
+            let tx = db.transaction('profiles', 'readwrite')
+            let store = tx.objectStore('profiles')
+            // Allow replace the old one
+            store.put(profile)
+
+            tx.oncomplete = () => {
+            }
+            tx.onerror = () => {
+                console.error(tx.error, 'Failed to cache profile')
+            }
+            tx.onabort = () => {
+                console.warn('Caching profile aborted')
+            }
+        }
+    }
+
+    getProfile(profileAddr: string): Promise<PlayerProfileWithPfp | undefined> {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB_KEY, DB_VER)
+            request.onsuccess = _e => {
+                let db = request.result
+                let read = db.transaction('profiles', 'readonly').objectStore('profiles').get(profileAddr)
+                read.onsuccess = _e => {
+                    const profile = read.result as PlayerProfileWithPfp | undefined
+                    resolve(profile)
+                }
+                read.onerror = _e => {
+                    reject(read.error)
+                }
+            }
+        })
     }
 
     cacheTokens(tokens: Token[]) {

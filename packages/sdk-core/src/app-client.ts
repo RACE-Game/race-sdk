@@ -143,7 +143,7 @@ export class AppClient extends BaseClient {
             const decryptionCache = new DecryptionCache()
             const endpoint = transactorAccount.endpoint
             const connection = Connection.initialize(gameAddr, playerAddr, endpoint, encryptor)
-            const profileLoader = new ProfileLoader(transport, onProfile)
+            const profileLoader = new ProfileLoader(transport, storage, onProfile)
 
 
             console.info(`Connected with transactor: ${endpoint}`)
@@ -197,7 +197,7 @@ export class AppClient extends BaseClient {
             console.info(`Initialization costed ${cost} ms`)
 
             const onReadyWithLoadingProfile = (ctx: GameContextSnapshot, state: Uint8Array) => {
-                profileLoader.load(gameAccount.players.map(p => ({addr: p.addr, id: p.accessVersion})))
+                profileLoader.load(gameAccount.players.map(p => p.addr))
                 if (onReady !== undefined) {
                     onReady(ctx, state)
                 }
