@@ -54,7 +54,12 @@ export class Storage implements IStorage {
             tokens.forEach(token => store.add(token))
 
             tx.oncomplete = () => {
-                console.log('Cached tokens:', tokens)
+            }
+            tx.onerror = () => {
+                console.error(tx.error, 'Failed to cache tokens')
+            }
+            tx.onabort = () => {
+                console.warn('Caching token aborted')
             }
         }
     }
@@ -71,13 +76,14 @@ export class Storage implements IStorage {
                     read.onsuccess = _e => {
                         const token = read.result as Token | undefined
                         results.push(token)
+                        count ++
+                        if (count === tokenAddrs.length) {
+                            resolve(results)
+                        }
                     }
                     read.onerror = _e => {
                         console.error(read.error, 'Error fetching token')
-                    }
-                    count ++
-                    if (count === tokenAddrs.length) {
-                        resolve(results)
+                        count ++
                     }
                 }
             }

@@ -299,8 +299,7 @@ export class AppHelper<W> {
             let cachedTokens = await storage.getTokens(tokenAddrs)
 
             for (const token of cachedTokens) {
-                if (token) {
-                    console.debug('Cached token:', token)
+                if (token !== undefined) {
                     tokens.push(token)
                 }
             }
