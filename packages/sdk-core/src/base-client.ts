@@ -2,7 +2,7 @@ import {
     ConnectionState,
     IConnection,
     SubmitEventParams,
-    SubscribeEventParams,
+    ConnectParams,
     ConnectionSubscription,
     SubmitMessageParams,
 } from './connection'
@@ -295,6 +295,7 @@ export class BaseClient {
                     }
                     console.info(`Try reconnect after 1 second, [${retries}/${this.__maxRetries}]`)
                     await new Promise(r => setTimeout(r, 1000))
+                    this.__connect()
                     this.__startSubscribe()
                 } else {
                     retries = 0
@@ -445,12 +446,14 @@ export class BaseClient {
         }
     }
 
+    __connect() {
+        this.__connection.connect(new ConnectParams({
+            settleVersion: this.__gameContext.versions.settleVersion
+        }))
+    }
+
     __startSubscribe() {
-        this.__sub = this.__connection.connect(
-            new SubscribeEventParams({
-                settleVersion: this.__gameContext.versions.settleVersion,
-            })
-        )
+        this.__sub = this.__connection.subscribeEvents()
     }
 
     async __handleConnectionState(state: ConnectionState) {

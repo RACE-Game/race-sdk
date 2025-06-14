@@ -297,6 +297,7 @@ export class AppClient extends BaseClient {
      */
     async attachGame() {
         try {
+            this.__connect()
             await this.__attachGameWithRetry()
             this.__startSubscribe()
         } catch (e) {

@@ -1,6 +1,6 @@
 import { BaseClient } from './base-client'
 import { Client } from './client'
-import { IConnection, SubscribeEventParams } from './connection'
+import { IConnection, ConnectParams } from './connection'
 import { DecryptionCache } from './decryption-cache'
 import { IEncryptor } from './encryptor'
 import { GameContext } from './game-context'
@@ -49,9 +49,9 @@ export class SubClient extends BaseClient {
         })
     }
 
-    __startSubscribe() {
+    __connect() {
         const settleVersion = this.__gameContext.checkpointVersion() || 0n
-        this.__sub = this.__connection.connect(new SubscribeEventParams({ settleVersion }))
+        this.__connection.connect(new ConnectParams({ settleVersion }))
     }
 
     /**
@@ -60,6 +60,7 @@ export class SubClient extends BaseClient {
     async attachGame() {
         console.group(`${this.__logPrefix}Attach to game`)
         try {
+            this.__connect()
             await this.__attachGameWithRetry()
             this.__startSubscribe()
         } catch (e) {

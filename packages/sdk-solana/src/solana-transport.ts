@@ -107,9 +107,10 @@ import { Metadata } from './metadata'
 import { getCreateAccountInstruction, getCreateAccountWithSeedInstruction } from '@solana-program/system'
 import { TOKEN_PROGRAM_ADDRESS } from '@solana-program/token'
 import { createDasRpc, MetaplexDASApi } from './metaplex'
-import { SolanaSignAndSendTransaction, SolanaWalletAdapterWallet } from '@solana/wallet-standard'
+import type { SolanaWalletAdapterWallet } from '@solana/wallet-standard'
 import { IdentifierString } from '@wallet-standard/base'
 
+const SolanaSignAndSendTransaction = 'solana:signAndSendTransaction'
 const MAX_CONFIRM_TIMES = 32
 
 type TransactionMessageWithFeePayerAndBlockhashLifetime = TransactionMessage &
@@ -1072,6 +1073,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             const icon = asset.content.files?.[0]?.uri
             if (icon == undefined) {
                 console.warn('Skip token %s as its icon is not available', addr)
+                console.warn('Token metadata:', asset.content.metadata)
                 return undefined
             }
             const decimals = asset.token_info.decimals
@@ -1330,7 +1332,6 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
                 const [transaction] = transactions;
                 const wireTransactionBytes = transactionEncoder.encode(transaction);
 
-                console.log('feature:', wallet.features[SolanaSignAndSendTransaction])
                 const resps = await wallet.features[SolanaSignAndSendTransaction].signAndSendTransaction(
                     {
                         transaction: new Uint8Array(wireTransactionBytes),

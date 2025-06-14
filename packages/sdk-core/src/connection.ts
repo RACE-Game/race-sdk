@@ -77,7 +77,7 @@ export class ExitGameParams {
     keepConnection?: boolean
 }
 
-export class SubscribeEventParams {
+export class ConnectParams {
     @field('u64')
     settleVersion: bigint
     constructor(fields: ISubscribeEventParams) {
@@ -122,7 +122,9 @@ export interface IConnection {
 
     exitGame(params: ExitGameParams): Promise<void>
 
-    connect(params: SubscribeEventParams): ConnectionSubscription
+    connect(params: ConnectParams): void
+
+    subscribeEvents(): AsyncGenerator<BroadcastFrame | ConnectionState | undefined>
 
     disconnect(): void
 }
@@ -167,7 +169,7 @@ export class Connection implements IConnection {
         }
     }
 
-    connect(params: SubscribeEventParams): ConnectionSubscription {
+    connect(params: ConnectParams) {
         console.info(`Establishing server connection, target: ${this.target}, settle version: ${params.settleVersion}`)
         this.socket = createWebSocket(this.endpoint)
 
@@ -206,9 +208,8 @@ export class Connection implements IConnection {
         this.socket.onerror = err => {
             console.error(err, 'WebSocket encountered an error')
         }
-
-        return this.subscribeEvents()
     }
+
 
     async attachGame(params: AttachGameParams): Promise<AttachResponse> {
         const req = makeReqNoSig(this.target, 'attach_game', params)

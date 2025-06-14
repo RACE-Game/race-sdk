@@ -227,6 +227,7 @@ export class AppHelper<W> {
         });
 
         const results = new Array<CheckpointOffChain | undefined>(gameAccounts.length);
+        const t = new Date()
 
         // Request checkpoints for each unique endpoint
         await Promise.all(Array.from(endpointToAddrs.entries()).map(async ([endpoint, addrs]) => {
@@ -245,6 +246,8 @@ export class AppHelper<W> {
                 console.error(err, `Failed to fetch checkpoints from endpoint ${endpoint}`);
             }
         }));
+
+        console.log(`Fetching checkpoints cost ${(new Date().getTime() - t.getTime())} ms`)
 
         return results;
     }
