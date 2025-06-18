@@ -1,6 +1,8 @@
-import { array, deserialize, field, map, option, struct } from '@race-foundation/borsh'
+import { array, deserialize, field, map, option, struct, enums } from '@race-foundation/borsh'
 import { sha256 } from './encryptor'
 import { Fields } from './types'
+import { GameEvent } from './events'
+import { EmitBridgeEvent } from './effect'
 
 export class Versions {
     @field('u64')
@@ -55,6 +57,18 @@ export class GameSpec {
     }
 }
 
+export class DispatchEvent {
+    @field('u64')
+    timeout!: bigint
+
+    @field(enums(GameEvent))
+    event!: GameEvent
+
+    constructor(fields: Fields<DispatchEvent>) {
+        Object.assign(this, fields)
+    }
+}
+
 export class VersionedData {
     @field('usize')
     id!: number
@@ -70,6 +84,12 @@ export class VersionedData {
 
     @field(struct(GameSpec))
     spec!: GameSpec
+
+    @field(option(enums(DispatchEvent)))
+    dispatch!: DispatchEvent | undefined
+
+    @field(array(struct(EmitBridgeEvent)))
+    bridgeEvents!: EmitBridgeEvent[]
 
     constructor(fields: any) {
         Object.assign(this, fields)
