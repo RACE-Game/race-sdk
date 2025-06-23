@@ -2,7 +2,7 @@ import { array, deserialize, field, map, option, struct, enums } from '@race-fou
 import { sha256 } from './encryptor'
 import { Fields } from './types'
 import { GameEvent } from './events'
-import { EmitBridgeEvent } from './effect'
+import { EmitBridgeEvent, SubGame } from './effect'
 
 export class Versions {
     @field('u64')
@@ -103,6 +103,9 @@ export class CheckpointOffChain {
     @field(map('usize', 'u8-array'))
     proofs!: Map<number, Uint8Array>
 
+    @field(array(struct(SubGame)))
+    launchSubgames!: SubGame[]
+
     constructor(fields: any) {
         Object.assign(this, fields)
     }
@@ -140,6 +143,9 @@ export class Checkpoint {
     @field(map('usize', 'u8-array'))
     proofs!: Map<number, Uint8Array>
 
+    @field(array(struct(SubGame)))
+    launchSubgames!: SubGame[]
+
     constructor(fields: any) {
         Object.assign(this, fields)
     }
@@ -154,6 +160,7 @@ export class Checkpoint {
         checkpoint.data = offchainPart.data
         checkpoint.accessVersion = onchainPart.accessVersion
         checkpoint.root = onchainPart.root
+        checkpoint.launchSubgames = offchainPart.launchSubgames
         return checkpoint
     }
 
