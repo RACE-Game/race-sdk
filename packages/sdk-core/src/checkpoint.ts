@@ -1,6 +1,8 @@
-import { array, deserialize, field, map, option, struct } from '@race-foundation/borsh'
+import { array, deserialize, field, map, option, struct, enums } from '@race-foundation/borsh'
 import { sha256 } from './encryptor'
 import { Fields } from './types'
+import { GameEvent } from './events'
+import { EmitBridgeEvent, SubGame } from './effect'
 
 export class Versions {
     @field('u64')
@@ -55,6 +57,18 @@ export class GameSpec {
     }
 }
 
+export class DispatchEvent {
+    @field('u64')
+    timeout!: bigint
+
+    @field(enums(GameEvent))
+    event!: GameEvent
+
+    constructor(fields: Fields<DispatchEvent>) {
+        Object.assign(this, fields)
+    }
+}
+
 export class VersionedData {
     @field('usize')
     id!: number
@@ -71,6 +85,12 @@ export class VersionedData {
     @field(struct(GameSpec))
     spec!: GameSpec
 
+    @field(option(struct(DispatchEvent)))
+    dispatch!: DispatchEvent | undefined
+
+    @field(array(struct(EmitBridgeEvent)))
+    bridgeEvents!: EmitBridgeEvent[]
+
     constructor(fields: any) {
         Object.assign(this, fields)
     }
@@ -82,6 +102,9 @@ export class CheckpointOffChain {
 
     @field(map('usize', 'u8-array'))
     proofs!: Map<number, Uint8Array>
+
+    @field(array(struct(SubGame)))
+    launchSubgames!: SubGame[]
 
     constructor(fields: any) {
         Object.assign(this, fields)
@@ -120,6 +143,9 @@ export class Checkpoint {
     @field(map('usize', 'u8-array'))
     proofs!: Map<number, Uint8Array>
 
+    @field(array(struct(SubGame)))
+    launchSubgames!: SubGame[]
+
     constructor(fields: any) {
         Object.assign(this, fields)
     }
@@ -134,6 +160,7 @@ export class Checkpoint {
         checkpoint.data = offchainPart.data
         checkpoint.accessVersion = onchainPart.accessVersion
         checkpoint.root = onchainPart.root
+        checkpoint.launchSubgames = offchainPart.launchSubgames
         return checkpoint
     }
 

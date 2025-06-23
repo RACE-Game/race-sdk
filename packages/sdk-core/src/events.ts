@@ -4,7 +4,6 @@ import { Fields } from './types'
 export type EventKind =
     | 'Invalid' // an invalid value
     | 'Custom'
-    | 'Ready'
     | 'ShareSecrets'
     | 'OperationTimeout'
     | 'Mask'
@@ -125,17 +124,6 @@ export function makeCustomEvent(sender: bigint, customEvent: ICustomEvent): Cust
 }
 
 @variant(1)
-export class Ready extends GameEvent implements IEventKind {
-    constructor(_: any = {}) {
-        super()
-        Object.setPrototypeOf(this, Ready.prototype)
-    }
-    kind(): EventKind {
-        return 'Ready'
-    }
-}
-
-@variant(2)
 export class ShareSecrets extends GameEvent implements IEventKind {
     @field('u64')
     sender!: bigint
@@ -151,7 +139,7 @@ export class ShareSecrets extends GameEvent implements IEventKind {
     }
 }
 
-@variant(3)
+@variant(2)
 export class OperationTimeout extends GameEvent implements IEventKind {
     @field(array('u64'))
     ids!: bigint[]
@@ -165,7 +153,7 @@ export class OperationTimeout extends GameEvent implements IEventKind {
     }
 }
 
-@variant(4)
+@variant(3)
 export class Mask extends GameEvent implements IEventKind {
     @field('u64')
     sender!: bigint
@@ -193,7 +181,7 @@ export class CiphertextAndDigest {
     }
 }
 
-@variant(5)
+@variant(4)
 export class Lock extends GameEvent implements IEventKind {
     @field('u64')
     sender!: bigint
@@ -211,7 +199,7 @@ export class Lock extends GameEvent implements IEventKind {
     }
 }
 
-@variant(6)
+@variant(5)
 export class RandomnessReady extends GameEvent implements IEventKind {
     @field('usize')
     randomId!: number
@@ -225,7 +213,7 @@ export class RandomnessReady extends GameEvent implements IEventKind {
     }
 }
 
-@variant(7)
+@variant(6)
 export class Join extends GameEvent implements IEventKind {
     @field(array(struct(GamePlayer)))
     players!: GamePlayer[]
@@ -239,7 +227,7 @@ export class Join extends GameEvent implements IEventKind {
     }
 }
 
-@variant(8)
+@variant(7)
 export class Deposit extends GameEvent implements IEventKind {
     @field(array(struct(GameDeposit)))
     deposits!: GameDeposit[]
@@ -253,7 +241,7 @@ export class Deposit extends GameEvent implements IEventKind {
     }
 }
 
-@variant(9)
+@variant(8)
 export class ServerLeave extends GameEvent implements IEventKind {
     @field('u64')
     serverId!: bigint
@@ -267,7 +255,7 @@ export class ServerLeave extends GameEvent implements IEventKind {
     }
 }
 
-@variant(10)
+@variant(9)
 export class Leave extends GameEvent implements IEventKind {
     @field('u64')
     playerId!: bigint
@@ -281,7 +269,7 @@ export class Leave extends GameEvent implements IEventKind {
     }
 }
 
-@variant(11)
+@variant(10)
 export class GameStart extends GameEvent implements IEventKind {
     constructor(_: any = {}) {
         super()
@@ -292,7 +280,7 @@ export class GameStart extends GameEvent implements IEventKind {
     }
 }
 
-@variant(12)
+@variant(11)
 export class WaitingTimeout extends GameEvent implements IEventKind {
     constructor(_: any = {}) {
         super()
@@ -303,7 +291,7 @@ export class WaitingTimeout extends GameEvent implements IEventKind {
     }
 }
 
-@variant(13)
+@variant(12)
 export class DrawRandomItems extends GameEvent implements IEventKind {
     @field('u64')
     sender!: bigint
@@ -321,7 +309,7 @@ export class DrawRandomItems extends GameEvent implements IEventKind {
     }
 }
 
-@variant(14)
+@variant(13)
 export class DrawTimeout extends GameEvent implements IEventKind {
     constructor(_: {}) {
         super()
@@ -332,7 +320,7 @@ export class DrawTimeout extends GameEvent implements IEventKind {
     }
 }
 
-@variant(15)
+@variant(14)
 export class ActionTimeout extends GameEvent implements IEventKind {
     @field('u64')
     playerId!: bigint
@@ -346,7 +334,7 @@ export class ActionTimeout extends GameEvent implements IEventKind {
     }
 }
 
-@variant(16)
+@variant(15)
 export class AnswerDecision extends GameEvent implements IEventKind {
     @field('u64')
     sender!: bigint
@@ -366,7 +354,7 @@ export class AnswerDecision extends GameEvent implements IEventKind {
     }
 }
 
-@variant(17)
+@variant(16)
 export class SecretsReady extends GameEvent implements IEventKind {
     @field(array('usize'))
     randomIds!: number[]
@@ -381,7 +369,7 @@ export class SecretsReady extends GameEvent implements IEventKind {
     }
 }
 
-@variant(18)
+@variant(17)
 export class Shutdown extends GameEvent implements IEventKind {
     constructor(_: any = {}) {
         super()
@@ -392,7 +380,7 @@ export class Shutdown extends GameEvent implements IEventKind {
     }
 }
 
-@variant(19)
+@variant(18)
 export class Bridge extends GameEvent implements IEventKind {
     @field('usize')
     destGameId!: number
@@ -412,7 +400,7 @@ export class Bridge extends GameEvent implements IEventKind {
     }
 }
 
-@variant(20)
+@variant(19)
 export class SubGameReady extends GameEvent implements IEventKind {
     @field('usize')
     gameId!: number

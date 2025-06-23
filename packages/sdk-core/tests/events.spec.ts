@@ -48,13 +48,6 @@ describe('Serialization', () => {
         assert.deepStrictEqual(e, e1)
     })
 
-    it('Ready', () => {
-        let e = new Ready({})
-        let data = serialize(e)
-        let e1 = deserialize(GameEvent, data)
-        assert.deepStrictEqual(e1, e)
-    })
-
     it('ShareSecrets', () => {
         let e = new ShareSecrets({
             sender: 1n,
