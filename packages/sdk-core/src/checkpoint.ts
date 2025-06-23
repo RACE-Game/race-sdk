@@ -85,7 +85,7 @@ export class VersionedData {
     @field(struct(GameSpec))
     spec!: GameSpec
 
-    @field(option(enums(DispatchEvent)))
+    @field(option(struct(DispatchEvent)))
     dispatch!: DispatchEvent | undefined
 
     @field(array(struct(EmitBridgeEvent)))
