@@ -61,7 +61,7 @@ export class ProfileLoader implements IProfileLoader {
         }
 
         // 2, try to serve the profile from storage
-        if (this.__storage !== undefined) {
+        if (this.__storage) {
             for (const addr of addrsToLoad) {
                 const profile = await this.__storage.getProfile(addr)
                 if (profile !== undefined) {
@@ -81,7 +81,7 @@ export class ProfileLoader implements IProfileLoader {
                 }
                 const profileWithPfp = { pfp: nft, nick: profile.nick, addr: profile.addr }
                 this.notify(profileWithPfp)
-                if (this.__storage !== undefined) {
+                if (this.__storage) {
                     this.__storage.cacheProfile(profileWithPfp)
                 }
             }

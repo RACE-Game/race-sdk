@@ -367,7 +367,7 @@ export class Encryptor implements IEncryptor {
     }
 
     static async create(playerAddr: string, storage?: IStorage): Promise<Encryptor> {
-        if (storage !== undefined) {
+        if (storage) {
             const imported = await this.importFromStorage(playerAddr, storage)
             if (imported !== undefined) {
                 return imported
@@ -376,7 +376,7 @@ export class Encryptor implements IEncryptor {
         const rsaKeypair = await generateRsaKeypair()
         const ecKeypair = await generateEcKeypair()
         const encryptor = new Encryptor(new NodePrivateKey(rsaKeypair, ecKeypair))
-        if (storage !== undefined) {
+        if (storage) {
             encryptor.exportToStorage(playerAddr, storage)
         }
         return encryptor
