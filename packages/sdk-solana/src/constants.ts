@@ -8,6 +8,7 @@ export const METAPLEX_PROGRAM_ID: Address = address('metaqbxxUerdq28cj1RbAWkYQm3
 export const PROFILE_ACCOUNT_LEN = 130n
 export const RECIPIENT_ACCOUNT_LEN = 2000n
 export const GAME_ACCOUNT_LEN = 1400n
+export const PLAYERS_REG_ACCOUNT_LEN = 152n
 export const PLAYER_PROFILE_SEED = 'race-player-1000'
 export const SERVER_PROFILE_SEED = 'race-server-1000'
 export const NAME_LEN = 16 // The maximum length of player's nick name

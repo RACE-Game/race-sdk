@@ -69,7 +69,6 @@ export interface IGameState {
     accessVersion: bigint
     settleVersion: bigint
     maxPlayers: number
-    players: IPlayerJoin[]
     deposits: IPlayerDeposit[]
     servers: IServerJoin[]
     dataLen: number
@@ -374,8 +373,8 @@ export class GameState implements IGameState {
     settleVersion!: bigint
     @field('u16')
     maxPlayers!: number
-    @field(array(struct(PlayerJoin)))
-    players!: PlayerJoin[]
+    @field(publicKeyExt)
+    playersRegAccount!: Address
     @field(array(struct(PlayerDeposit)))
     deposits!: PlayerDeposit[]
     @field(array(struct(ServerJoin)))
@@ -413,7 +412,7 @@ export class GameState implements IGameState {
         return deserialize(GameState, data)
     }
 
-    generalize(addr: Address): RaceCore.GameAccount {
+    generalize(addr: Address, players: PlayerJoin[]): RaceCore.GameAccount {
         let checkpointOnChain = undefined
         if (this.checkpoint.length !== 0) {
             checkpointOnChain = RaceCore.CheckpointOnChain.fromRaw(this.checkpoint)
@@ -429,7 +428,7 @@ export class GameState implements IGameState {
             accessVersion: this.accessVersion,
             settleVersion: this.settleVersion,
             maxPlayers: this.maxPlayers,
-            players: this.players.map(p => p.generalize()),
+            players: players.map(p => p.generalize()),
             deposits: this.deposits.map(d => d.generalize()),
             servers: this.servers.map(s => s.generalize()),
             dataLen: this.dataLen,
@@ -443,6 +442,25 @@ export class GameState implements IGameState {
             bonuses: this.bonuses.map(b => b.generalize()),
             balances: this.balances,
         }
+    }
+}
+
+export class PlayersRegState {
+    @field('u64')
+    accessVersion!: bigint
+    @field('u64')
+    settleVersion!: bigint
+    @field('usize')
+    size!: number
+    @field(128)
+    positionFlags!: number[]
+    @field(array(struct(PlayerJoin)))
+    players!: PlayerJoin[]
+    constructor(fields: IGameState) {
+        Object.assign(this, fields)
+    }
+    static deserialize(data: Uint8Array): PlayersRegState {
+        return deserialize(PlayersRegState, data)
     }
 }
 
