@@ -185,6 +185,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             );
         ixs.push(...createGameAccountIxs);
         ixs.push(...createPlayersRegAccountIxs);
+        signers.push(playersRegAccount);
         signers.push(gameAccount);
 
         const tokenMintKey = address(tokenAddr);
