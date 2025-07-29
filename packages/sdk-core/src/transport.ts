@@ -181,6 +181,7 @@ export type CloseGameAccountError =
     | 'permission-denied'
     | 'game-not-in-reg'
     | 'reg-not-found'
+    | 'players-reg-not-found'
 
 export type AttachBonusError = 'bonuses-is-full' | 'game-not-found' | 'too-much-bonuses'
 

@@ -238,6 +238,7 @@ export function createPlayerProfile(
 export type CreateGameOptions = {
     ownerKey: Address
     gameAccountKey: Address
+    playersRegAccountKey: Address
     stakeAccountKey: Address
     recipientAccountKey: Address
     mint: Address
@@ -297,6 +298,10 @@ export function createGameAccount(opts: CreateGameOptions): IInstruction {
             },
             {
                 address: opts.gameAccountKey,
+                role: AccountRole.WRITABLE,
+            },
+            {
+                address: opts.playersRegAccountKey,
                 role: AccountRole.WRITABLE,
             },
             {
@@ -378,6 +383,7 @@ export type JoinOptions = {
     profileKey: Address
     paymentKey: Address
     gameAccountKey: Address
+    playersRegAccountKey: Address
     mint: Address
     stakeAccountKey: Address
     recipientAccountKey: Address
@@ -395,6 +401,7 @@ export function join(opts: JoinOptions): IInstruction {
         profileKey,
         paymentKey,
         gameAccountKey,
+        playersRegAccountKey,
         mint,
         stakeAccountKey,
         recipientAccountKey,
@@ -424,6 +431,10 @@ export function join(opts: JoinOptions): IInstruction {
             },
             {
                 address: gameAccountKey,
+                role: AccountRole.WRITABLE,
+            },
+            {
+                address: playersRegAccountKey,
                 role: AccountRole.WRITABLE,
             },
             {
@@ -461,6 +472,7 @@ export type DepositOpts = {
     profileKey: Address
     paymentKey: Address
     gameAccountKey: Address
+    playersRegAccountKey: Address
     mint: Address
     stakeAccountKey: Address
     recipientAccountKey: Address
@@ -470,8 +482,18 @@ export type DepositOpts = {
 }
 
 export function deposit(opts: DepositOpts): IInstruction {
-    const { playerKey, profileKey, paymentKey, gameAccountKey, mint, stakeAccountKey, amount, settleVersion, pda } =
-        opts
+    const {
+        playerKey,
+        profileKey,
+        paymentKey,
+        gameAccountKey,
+        playersRegAccountKey,
+        mint,
+        stakeAccountKey,
+        amount,
+        settleVersion,
+        pda
+    } = opts
 
     const data = new DepositGameData({ amount, settleVersion }).serialize()
 
@@ -491,6 +513,10 @@ export function deposit(opts: DepositOpts): IInstruction {
             },
             {
                 address: gameAccountKey,
+                role: AccountRole.WRITABLE,
+            },
+            {
+                address: playersRegAccountKey,
                 role: AccountRole.WRITABLE,
             },
             {
