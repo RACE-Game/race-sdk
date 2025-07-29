@@ -88,7 +88,7 @@ import {
     RECIPIENT_ACCOUNT_LEN,
     NATIVE_MINT,
     SERVER_PROFILE_SEED,
-    PLAYERS_REG_ACCOUNT_LEN,
+    PLAYERS_REG_INIT_LEN,
 } from "./constants";
 
 import {
@@ -180,7 +180,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         const { ixs: createPlayersRegAccountIxs, account: playersRegAccount } =
             await this._prepareCreateAccount(
                 payer,
-                PLAYERS_REG_ACCOUNT_LEN,
+                PLAYERS_REG_INIT_LEN,
                 PROGRAM_ID,
             );
         ixs.push(...createGameAccountIxs);
