@@ -1442,9 +1442,11 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             const accountInfo = accounts.value[i];
             if (accountInfo !== null) {
                 try {
+                    let state = PlayersRegState.deserialize(base64ToUint8Array(accountInfo.data[0]))
+                    state.players = state.players.filter(p => p.accessVersion > 0n)
                     ret.set(
                         key,
-                        PlayersRegState.deserialize(base64ToUint8Array(accountInfo.data[0]))
+                        state
                     );
                     console.debug("Found game account %s", key);
                 } catch (_: any) {
@@ -1522,11 +1524,12 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         while (retries < MAX_RETRIES_FOR_GET_PLAYERS_REG) {
             const data = await this._getFinializedBase64AccountData(playersRegAccountKey);
             if (data !== undefined) {
-                const state = PlayersRegState.deserialize(data);
+                let state = PlayersRegState.deserialize(data);
                 if (
                     state.accessVersion == accessVersion &&
                         state.settleVersion == settleVersion
                 ) {
+                    state.players = state.players.filter(p => p.accessVersion > 0n);
                     return state;
                 } else {
                     retries += 1;
