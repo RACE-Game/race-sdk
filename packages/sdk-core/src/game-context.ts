@@ -554,6 +554,16 @@ export class GameContext {
         return this.versions.settleVersion
     }
 
+
+    /**
+     *  Reset the GameContext.
+     *
+     *  This function is mainly used after reconnection.
+     */
+    reset() {
+        this.randomStates = []
+    }
+
     makeSettlesFromEffect(effect: Effect): Settle[] {
         let settlesMap: Map<bigint, Settle> = new Map<bigint, Settle>();
 

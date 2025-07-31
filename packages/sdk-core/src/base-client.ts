@@ -295,8 +295,9 @@ export class BaseClient {
                     }
                     console.info(`Try reconnect after 1 second, [${retries}/${this.__maxRetries}]`)
                     await new Promise(r => setTimeout(r, 1000))
+                    this.__client.flushSecretStates()
+                    this.__gameContext.reset()
                     this.__connect()
-                    this.__startSubscribe()
                 } else {
                     retries = 0
                 }
