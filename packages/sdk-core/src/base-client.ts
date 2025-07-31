@@ -480,4 +480,8 @@ export class BaseClient {
     get gameId(): number {
         return this.__gameId
     }
+
+    get connection(): IConnection {
+        return this.__connection
+    }
 }
