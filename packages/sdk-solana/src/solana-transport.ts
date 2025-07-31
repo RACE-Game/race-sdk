@@ -276,8 +276,9 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             return response.failed("game-not-found");
         }
 
+        const playersRegAccountKey = gameState.playersRegAccount;
         const playersRegState = await this._getPlayersRegState(
-            gameState.playersRegAccount,
+            playersRegAccountKey,
             gameState.accessVersion,
             gameState.settleVersion,
         );
@@ -326,6 +327,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         const closeGameAccountIx = await instruction.closeGame({
             payerKey: payer.address,
             gameAccountKey,
+            playersRegAccountKey,
             stakeKey,
             pda,
             receiver,

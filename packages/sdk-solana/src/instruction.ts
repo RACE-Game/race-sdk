@@ -334,50 +334,6 @@ export function createGameAccount(opts: CreateGameOptions): IInstruction {
     }
 }
 
-export type CloseGameAccountOptions = {
-    pda: Address
-    ownerKey: Address
-    gameAccountKey: Address
-    regAccountKey: Address
-    gameStakeKey: Address
-}
-
-export function closeGameAccount(opts: CloseGameAccountOptions): IInstruction {
-    const { ownerKey, gameAccountKey, regAccountKey, gameStakeKey, pda } = opts
-    const data = new CloseGameAccountData().serialize()
-    // const [pda, _]  = await getProgramDerivedAddress({ programAddress: PROGRAM_ID, seeds: [gameAccountKey] })
-    return {
-        accounts: [
-            {
-                address: ownerKey,
-                role: AccountRole.READONLY_SIGNER,
-            },
-            {
-                address: gameAccountKey,
-                role: AccountRole.WRITABLE,
-            },
-            {
-                address: regAccountKey,
-                role: AccountRole.WRITABLE,
-            },
-            {
-                address: gameStakeKey,
-                role: AccountRole.WRITABLE,
-            },
-            {
-                address: pda,
-                role: AccountRole.READONLY,
-            },
-            {
-                address: PROGRAM_ID,
-                role: AccountRole.READONLY,
-            },
-        ],
-        programAddress: PROGRAM_ID,
-        data,
-    }
-}
-
 export type JoinOptions = {
     playerKey: Address
     profileKey: Address
@@ -825,6 +781,7 @@ export function unregisterGame(opts: UnregisterGameOpts): IInstruction {
 export type CloseGameAccountOpts = {
     payerKey: Address
     gameAccountKey: Address
+    playersRegAccountKey: Address
     stakeKey: Address
     pda: Address
     receiver: Address
@@ -832,7 +789,7 @@ export type CloseGameAccountOpts = {
 }
 
 export async function closeGame(opts: CloseGameAccountOpts): Promise<IInstruction> {
-    const { payerKey, gameAccountKey, stakeKey, pda, receiver, gameState } = opts
+    const { payerKey, gameAccountKey, playersRegAccountKey, stakeKey, pda, receiver, gameState } = opts
 
     let accounts = [
         {
@@ -841,6 +798,10 @@ export async function closeGame(opts: CloseGameAccountOpts): Promise<IInstructio
         },
         {
             address: gameAccountKey,
+            role: AccountRole.WRITABLE,
+        },
+        {
+            address: playersRegAccountKey,
             role: AccountRole.WRITABLE,
         },
         {
