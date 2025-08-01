@@ -89,6 +89,7 @@ import {
     NATIVE_MINT,
     SERVER_PROFILE_SEED,
     PLAYERS_REG_INIT_LEN,
+    PLAYER_INFO_LEN,
 } from "./constants";
 
 import {
@@ -162,8 +163,9 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         params: CreateGameAccountParams,
         response: ResponseHandle<CreateGameResponse, CreateGameError>,
     ): Promise<void> {
+        console.log('Create game:', params);
         const payer = this.useTransactionSendingSigner(wallet);
-        const { title, bundleAddr, tokenAddr } = params;
+        const { title, bundleAddr, tokenAddr, sponsorPlayerSlots } = params;
         if (title.length > NAME_LEN) {
             return response.failed("invalid-title");
         }
@@ -177,12 +179,15 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
 
         const { ixs: createGameAccountIxs, account: gameAccount } =
             await this._prepareCreateAccount(payer, GAME_ACCOUNT_LEN, PROGRAM_ID);
+
         const { ixs: createPlayersRegAccountIxs, account: playersRegAccount } =
-            await this._prepareCreateAccount(
+            await this._prepareCreateAccountWithExtraRent(
                 payer,
                 PLAYERS_REG_INIT_LEN,
+                BigInt(sponsorPlayerSlots || 0) * PLAYER_INFO_LEN,
                 PROGRAM_ID,
             );
+
         ixs.push(...createGameAccountIxs);
         ixs.push(...createPlayersRegAccountIxs);
         signers.push(playersRegAccount);
@@ -885,6 +890,28 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             ixs,
             tokenAccount: token,
         };
+    }
+    async _prepareCreateAccountWithExtraRent(
+        payer: TransactionSigner,
+        size: bigint,
+        extraRentSize: bigint,
+        programAddress: Address,
+    ): Promise<{ ixs: IInstruction[]; account: KeyPairSigner }> {
+        const account = await generateKeyPairSigner();
+        const lamports = await this.#rpc
+            .getMinimumBalanceForRentExemption(size + extraRentSize)
+            .send();
+
+        const ix = getCreateAccountInstruction({
+            payer,
+            newAccount: account,
+            space: size,
+            lamports,
+            programAddress,
+        });
+
+        console.info("Transaction Instruction[CreateAccountWithExtraRent]:", ix);
+        return { ixs: [ix], account };
     }
     async _prepareCreateAccount(
         payer: TransactionSigner,

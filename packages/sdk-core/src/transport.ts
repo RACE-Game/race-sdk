@@ -39,6 +39,9 @@ export type CreateGameAccountParams = {
     registrationAddr: string
     recipientAddr: string
     data: Uint8Array
+    // Optional, the number of player fees to sponsor
+    // Currently supported on Solana
+    sponsorPlayerSlots?: number
 }
 
 export type CreateGameResponse = {

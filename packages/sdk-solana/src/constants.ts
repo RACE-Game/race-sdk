@@ -10,6 +10,7 @@ export const RECIPIENT_ACCOUNT_LEN = 2000n
 export const GAME_ACCOUNT_LEN = 1400n
 export const PLAYERS_REG_HEAD_LEN = 152n
 export const PLAYERS_REG_INIT_LEN = PLAYERS_REG_HEAD_LEN + 4n;
+export const PLAYER_INFO_LEN = 170n;
 export const PLAYER_PROFILE_SEED = 'race-player-1000'
 export const SERVER_PROFILE_SEED = 'race-server-1000'
 export const NAME_LEN = 16 // The maximum length of player's nick name
