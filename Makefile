@@ -1,4 +1,4 @@
-.PHONY: all clean
+.PHONY: all clean check
 
 DEPS := $(wildcard packages/*/package.json)
 PACKAGES := borsh sdk-core sdk-solana sdk-sui sdk-facade
@@ -14,12 +14,16 @@ clean:
 node_modules: $(DEPS)
 	npm i -ws
 
+check:
+	@echo make: Entering directory "'packages/$(PKG)'"
+	npm run check --workspace=@race-foundation/$(PKG)
+	@echo make: Leaving directory "'packages/$(PKG)'"
+
 define LIB_template
 packages/$(1)/lib: node_modules $$(wildcard packages/$(1)/src/*.ts wildcard packages/$(1)/src/**/*.ts packages/$(1)/*.js packages/$(1)/*.json)
 	@echo make: Entering directory "'packages/$(1)'"
-	npm run build:typedefs --workspace=@race-foundation/$(1)
-	npm run build:cjs --workspace=@race-foundation/$(1)
-	npm run build:esm --workspace=@race-foundation/$(1)
+	npm run check --workspace=@race-foundation/$(1)
+	npm run build --workspace=@race-foundation/$(1)
 	touch $$@
 	@echo make: Leaving directory "'packages/$(1)'"
 endef

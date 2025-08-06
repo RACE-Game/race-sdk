@@ -20,6 +20,7 @@
     }
   },
   "scripts": {
+    "check": "tsc -p tsconfig.check.json",
     "test": "jest",
     "test:watch": "jest --watch",
     "build:esm": "tsc -p tsconfig.esm.json",
