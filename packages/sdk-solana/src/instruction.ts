@@ -677,17 +677,15 @@ export type ClaimOpts = {
 }
 
 export async function claim(opts: ClaimOpts): Promise<Result<IInstruction, RecipientClaimError>> {
-    const {
-
-    } = opts
+    const { payerKey, recipientKey, recipientState } = opts
 
     let accounts = [
         {
-            address: opts.payerKey,
+            address: payerKey,
             role: AccountRole.READONLY_SIGNER,
         },
         {
-            address: opts.recipientKey,
+            address: recipientKey,
             role: AccountRole.WRITABLE,
         },
         {
@@ -700,44 +698,46 @@ export async function claim(opts: ClaimOpts): Promise<Result<IInstruction, Recip
         },
     ]
 
-    for (const slot of opts.recipientState.slots) {
-        const [pda, _] = await getProgramDerivedAddress({ programAddress: PROGRAM_ID, seeds: [getBase58Encoder().encode(opts.recipientKey), Uint8Array.of(slot.id)] })
-
-        for (const slotShare of slot.shares) {
-            if (slotShare.owner instanceof RecipientSlotOwnerAssigned && slotShare.owner.addr === opts.payerKey) {
-                accounts.push({
-                    address: pda,
-                    role: AccountRole.READONLY,
-                })
-
-                accounts.push({
-                    address: slot.stakeAddr,
-                    role: AccountRole.WRITABLE,
-                })
-
-                if (slot.tokenAddr == NATIVE_MINT) {
-                    accounts.push({
-                        address: opts.payerKey,
-                        role: AccountRole.WRITABLE,
-                    })
-                } else {
-
-                    const [ata] = await SPL.findAssociatedTokenPda({
-                        mint: address(slot.tokenAddr),
-                        owner: address(slotShare.owner.addr),
-                        tokenProgram: SPL.TOKEN_PROGRAM_ADDRESS
-                    })
-                    accounts.push({
-                        address: ata,
-                        role: AccountRole.WRITABLE,
-                    })
-                }
-            }
-        }
+    // If there are no slots in the recipient account, return an error as there's nothing to claim.
+    if (recipientState.slots.length === 0) {
+        return { err: 'no-slots-to-claim' };
     }
 
-    if (accounts.length === 5) {
-        return { err: 'no-slots-to-claim' }
+    // Iterate over all slots to build the accounts list.
+    for (const slot of recipientState.slots) {
+        // Derive the PDA for the slot.
+        const [pda, _] = await getProgramDerivedAddress({
+            programAddress: PROGRAM_ID,
+            seeds: [getBase58Encoder().encode(recipientKey), Uint8Array.of(slot.id)],
+        });
+
+        // Add the PDA and the slot's stake account.
+        accounts.push({
+            address: pda,
+            role: AccountRole.READONLY,
+        });
+        accounts.push({
+            address: slot.stakeAddr,
+            role: AccountRole.WRITABLE,
+        });
+
+        // Determine the receiver's token account address.
+        let receiverAddress: Address;
+        if (slot.tokenAddr == NATIVE_MINT) {
+            // For native SOL, the receiver is the payer's main account.
+            receiverAddress = payerKey;
+        } else {
+            // For SPL tokens, find the Associated Token Account (ATA).
+            [receiverAddress] = await SPL.findAssociatedTokenPda({
+                mint: address(slot.tokenAddr),
+                owner: address(payerKey),
+                tokenProgram: SPL.TOKEN_PROGRAM_ADDRESS,
+            });
+        }
+        accounts.push({
+            address: receiverAddress,
+            role: AccountRole.WRITABLE,
+        });
     }
 
     return {
@@ -746,7 +746,7 @@ export async function claim(opts: ClaimOpts): Promise<Result<IInstruction, Recip
             programAddress: PROGRAM_ID,
             data: Uint8Array.of(Instruction.RecipientClaim),
         },
-    }
+    };
 }
 
 export type UnregisterGameOpts = {
