@@ -29,6 +29,9 @@ import {
     AttachBonusParams,
     Token,
     TokenBalance,
+    AddRecipientSlotError,
+    AddRecipientSlotParams,
+    AddRecipientSlotResponse,
 } from '@race-foundation/sdk-core'
 import { deserialize } from '@race-foundation/borsh'
 import { FacadeWallet } from './facade-wallet'
@@ -66,6 +69,11 @@ interface CreateGameAccountInstruction {
     ticketPrice?: bigint
     collection?: string
     data: number[]
+}
+
+interface AddRecipientSlotInstruction {
+    recipientAddr: string;
+    slot: RaceCore.RecipientSlotInit;
 }
 
 const nftMap: Record<string, Nft> = {
@@ -222,6 +230,31 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
         _response: ResponseHandle<CreateRecipientResponse, CreateRecipientError>
     ): Promise<void> {
         throw new Error('Method not implemented.')
+    }
+
+    async addRecipientSlot(
+        _wallet: FacadeWallet,
+        params: AddRecipientSlotParams,
+        response: ResponseHandle<AddRecipientSlotResponse, AddRecipientSlotError>
+    ): Promise<void> {
+        const { recipientAddr, slot } = params;
+
+        const recipient = await this.getRecipient(recipientAddr);
+        if (!recipient) {
+            return response.failed('recipient-not-found');
+        }
+
+        if (recipient.slots.some(s => s.id === slot.id)) {
+            return response.failed('slot-id-exists');
+        }
+
+        const ix: AddRecipientSlotInstruction = {
+            recipientAddr,
+            slot,
+        };
+
+        const signature = await this.sendInstruction('add_recipient_slot', ix);
+        response.succeed({ recipientAddr, signature });
     }
 
     async join(wallet: FacadeWallet, params: JoinParams, response: ResponseHandle<JoinResponse, JoinError>): Promise<void> {

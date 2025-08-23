@@ -41,6 +41,9 @@ import {
     RecipientSlotInit,
     RecipientSlotShareInit,
     Result,
+    AddRecipientSlotParams,
+    AddRecipientSlotResponse,
+    AddRecipientSlotError,
 } from '@race-foundation/sdk-core'
 import { CoinStruct, ObjectOwner, SuiClient, SuiObjectResponse } from '@mysten/sui/client'
 import { Transaction, TransactionObjectArgument } from '@mysten/sui/transactions'
@@ -318,7 +321,7 @@ export class SuiTransport implements ITransport<WalletAdapter> {
             }
         }
 
-        coinsToGas.push(...coins.slice(i+1))
+        coinsToGas.push(...coins.slice(i + 1))
         console.log('Coins to gas:', coinsToGas)
 
         transaction.setGasPayment(coinsToGas.map(coin => ({ objectId: coin.coinObjectId, ...coin })))
@@ -436,6 +439,96 @@ export class SuiTransport implements ITransport<WalletAdapter> {
         const result = await send(wallet, transaction, suiClient, resp)
         if ('err' in result) {
             return resp.transactionFailed(result.err)
+        }
+    }
+
+    async addRecipientSlot(
+        wallet: WalletAdapter,
+        params: AddRecipientSlotParams,
+        resp: ResponseHandle<AddRecipientSlotResponse, AddRecipientSlotError>
+    ): Promise<void> {
+        const { recipientAddr, slot } = params;
+        const suiClient = this.suiClient;
+        const transaction = new Transaction();
+
+        try {
+            const recipientObject = await this.getRecipient(recipientAddr);
+            if (!recipientObject) {
+                return resp.failed('recipient-not-found');
+            }
+
+            if (recipientObject.slots.some(s => s.id === slot.id)) {
+                return resp.failed('slot-id-exists');
+            }
+
+            const recipientObjRef = await getSharedObjectRef(this.suiClient, recipientAddr, true);
+            if (!recipientObjRef) {
+                return resp.retryRequired('Could not get recipient object reference');
+            }
+
+            // Step 1: Create each RecipientSlotShare object via a moveCall
+            const shareArgs: TransactionObjectArgument[] = [];
+            for (const share of slot.initShares) {
+                let ownerType: number;
+                let ownerInfo: string;
+
+                if ('addr' in share.owner) {
+                    ownerType = 1;
+                    ownerInfo = share.owner.addr;
+                } else {
+                    ownerType = 0;
+                    ownerInfo = share.owner.identifier;
+                }
+
+                const shareObject = transaction.moveCall({
+                    target: `${this.packageId}::recipient::create_slot_share`,
+                    arguments: [
+                        transaction.pure.u8(ownerType),
+                        transaction.pure.string(ownerInfo),
+                        transaction.pure.u16(share.weights),
+                    ],
+                });
+                shareArgs.push(shareObject);
+            }
+
+            // Step 2: Create a vector from the share objects
+            const sharesVector = transaction.makeMoveVec({
+                type: `${this.packageId}::recipient::RecipientSlotShare`,
+                elements: shareArgs,
+            });
+
+            const slotTypeArg = slot.slotType === 'token' ? 1 : 0; // 0 for Nft, 1 for Token
+
+            // Step 3: Call the main `add_slot` function with the created vector
+            transaction.moveCall({
+                target: `${this.packageId}::recipient::add_slot`,
+                arguments: [
+                    transaction.sharedObjectRef(recipientObjRef),
+                    transaction.pure.u8(slot.id),
+                    transaction.pure.u8(slotTypeArg),
+                    transaction.pure.string(slot.tokenAddr),
+                    sharesVector,
+                ],
+                typeArguments: [slot.tokenAddr],
+            });
+
+            // Send the transaction
+            const result = await send(wallet, transaction, suiClient, resp);
+            if ('err' in result) {
+                return resp.transactionFailed(result.err);
+            }
+
+            const signature = result.ok.digest;
+            console.log(`Add slot transaction successful with digest: ${signature}`);
+
+            return resp.succeed({
+                recipientAddr,
+                signature,
+            });
+
+        } catch (error: any) {
+            console.error("Error in addRecipientSlot:", error);
+            resp.transactionFailed(error.message || 'An unknown error occurred');
         }
     }
 

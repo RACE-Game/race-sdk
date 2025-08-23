@@ -77,6 +77,9 @@ import {
     CloseGameAccountResponse,
     CloseGameAccountError,
     SendTransactionResult,
+    AddRecipientSlotParams,
+    AddRecipientSlotResponse,
+    AddRecipientSlotError,
 } from "@race-foundation/sdk-core";
 import * as instruction from "./instruction";
 
@@ -121,8 +124,8 @@ const MAX_CONFIRM_TIMES = 32;
 const MAX_RETRIES_FOR_GET_PLAYERS_REG = 5;
 
 type TransactionMessageWithFeePayerAndBlockhashLifetime = TransactionMessage &
-  ITransactionMessageWithFeePayer &
-  TransactionMessageWithBlockhashLifetime;
+    ITransactionMessageWithFeePayer &
+    TransactionMessageWithBlockhashLifetime;
 
 function base64ToUint8Array(base64: string): Uint8Array {
     const rawBytes = atob(base64);
@@ -392,7 +395,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         if (gameState.entryType instanceof EntryTypeCash) {
             if (
                 amount < gameState.entryType.minDeposit ||
-                    amount > gameState.entryType.maxDeposit
+                amount > gameState.entryType.maxDeposit
             ) {
                 console.warn(
                     `Invalid deposit, maximum = ${gameState.entryType.maxDeposit}, minimum = ${gameState.entryType.minDeposit}, submitted = ${amount}`,
@@ -538,7 +541,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         if (gameState.entryType instanceof EntryTypeCash) {
             if (
                 amount < gameState.entryType.minDeposit ||
-                    amount > gameState.entryType.maxDeposit
+                amount > gameState.entryType.maxDeposit
             ) {
                 console.warn(
                     `Invalid deposit, maximum = ${gameState.entryType.maxDeposit}, minimum = ${gameState.entryType.minDeposit}, submitted = ${amount}`,
@@ -1064,6 +1067,92 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             signature,
         });
     }
+    async addRecipientSlot(
+        wallet: SolanaWalletAdapterWallet,
+        params: AddRecipientSlotParams,
+        response: ResponseHandle<AddRecipientSlotResponse, AddRecipientSlotError>
+    ): Promise<void> {
+        const payer = this.useTransactionSendingSigner(wallet);
+        const { recipientAddr, slot } = params;
+        const recipientAccountKey = address(recipientAddr);
+
+        const recipientState = await this._getRecipientState(recipientAccountKey);
+        if (recipientState === undefined) {
+            return response.failed("recipient-not-found");
+        }
+
+        if (recipientState.slots.some(s => s.id === slot.id)) {
+            return response.failed("slot-id-exists");
+        }
+
+        let ixs: IInstruction[] = [];
+        let signers: KeyPairSigner[] = [];
+        const tokenMintKey = address(slot.tokenAddr);
+
+        let stakeAddr: Address;
+
+        if (tokenMintKey == NATIVE_MINT) {
+            // For SOL slots, use a PDA as the stake account.
+            [stakeAddr] = await getProgramDerivedAddress({
+                programAddress: PROGRAM_ID,
+                seeds: [getBase58Encoder().encode(recipientAccountKey), Uint8Array.of(slot.id)],
+            });
+        } else {
+            // For SPL token slots, create a new dedicated stake account.
+            const { ixs: createStakeAccountIxs, tokenAccount: stakeAccount } =
+                await this._prepareCreateTokenAccount(payer, tokenMintKey);
+            ixs.push(...createStakeAccountIxs);
+            signers.push(stakeAccount);
+            stakeAddr = stakeAccount.address;
+        }
+
+        const initShares = slot.initShares.map((share) => {
+            let owner;
+            if ("addr" in share.owner) {
+                owner = new RecipientSlotOwnerAssigned({ addr: address(share.owner.addr) });
+            } else {
+                owner = new RecipientSlotOwnerUnassigned({
+                    identifier: share.owner.identifier,
+                });
+            }
+            return new instruction.SlotShareInit({
+                owner,
+                weights: share.weights,
+            });
+        });
+
+        const slotInit = new instruction.SlotInit({
+            id: slot.id,
+            tokenAddr: address(slot.tokenAddr),
+            stakeAddr,
+            slotType: slot.slotType === "token" ? 0 : 1,
+            initShares,
+        });
+
+        const addSlotIx = instruction.addRecipientSlot({
+            payerKey: payer.address,
+            recipientKey: recipientAccountKey,
+            slot: slotInit,
+        });
+        ixs.push(addSlotIx);
+
+        const tx = await makeTransaction(this.#rpc, payer, ixs);
+        if ("err" in tx) {
+            return response.retryRequired(tx.err);
+        }
+
+        const sig = await sendTransaction(payer, tx.ok, response, { signers });
+        if ("err" in sig) {
+            return response.transactionFailed(sig.err);
+        }
+
+        const signature = sig.ok;
+
+        await confirmSignature(this.#rpc, signature, response, {
+            recipientAddr,
+            signature,
+        });
+    }
     async createRegistration(
         _payer: SolanaWalletAdapterWallet,
         _params: CreateRegistrationParams,
@@ -1398,7 +1487,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         const resp = await this.#dasRpc
             .getAssetsByOwner({
                 ownerAddress: walletAddr,
-        })
+            })
             .send();
         let result: Nft[] = [];
 
@@ -1556,7 +1645,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
                 let state = PlayersRegState.deserialize(data);
                 if (
                     state.accessVersion == accessVersion &&
-                        state.settleVersion == settleVersion
+                    state.settleVersion == settleVersion
                 ) {
                     state.players = state.players.filter(p => p.accessVersion > 0n);
                     return state;
@@ -1621,7 +1710,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
                 const wireTransactionBytes = transactionEncoder.encode(transaction);
 
                 const resps = await wallet.features[
-          SolanaSignAndSendTransaction
+                    SolanaSignAndSendTransaction
                 ].signAndSendTransaction({
                     transaction: new Uint8Array(wireTransactionBytes),
                     chain: this.#chain,
@@ -1760,15 +1849,15 @@ async function makeTransaction(
         createTransactionMessage({ version: 0 }),
         (tx) => (
             console.info(feePayer, "Setting the transaction fee payer"),
-      setTransactionMessageFeePayer(feePayer.address, tx)
+            setTransactionMessageFeePayer(feePayer.address, tx)
         ),
         (tx) => (
             console.info(latestBlockhash, "Setting the transaction lifetime"),
-      setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx)
+            setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx)
         ),
         (tx) => (
             console.info(instructions, "Setting the transaction instructions"),
-      appendTransactionMessageInstructions(instructions, tx)
+            appendTransactionMessageInstructions(instructions, tx)
         ),
     );
 

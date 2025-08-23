@@ -188,7 +188,19 @@ export type CloseGameAccountError =
 
 export type AttachBonusError = 'bonuses-is-full' | 'game-not-found' | 'too-much-bonuses'
 
-export interface ITransport<W=never> {
+export type AddRecipientSlotParams = {
+    recipientAddr: string;
+    slot: RecipientSlotInit;
+};
+
+export type AddRecipientSlotResponse = {
+    recipientAddr: string;
+    signature: string;
+};
+
+export type AddRecipientSlotError = 'recipient-not-found' | 'slot-id-exists' | 'invalid-slot-params' | 'unsupported-entry-type';
+
+export interface ITransport<W = never> {
 
     walletAddr(wallet: W): string
 
@@ -217,6 +229,12 @@ export interface ITransport<W=never> {
         params: CreateRecipientParams,
         resp: ResponseHandle<CreateRecipientResponse, CreateRecipientError>
     ): Promise<void>
+
+    addRecipientSlot(
+        wallet: W,
+        params: AddRecipientSlotParams,
+        resp: ResponseHandle<AddRecipientSlotResponse, AddRecipientSlotError>
+    ): Promise<void>;
 
     registerGame(
         wallet: W,

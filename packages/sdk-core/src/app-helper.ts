@@ -21,6 +21,9 @@ import {
     JoinError,
     DepositResponse,
     DepositError,
+    AddRecipientSlotParams,
+    AddRecipientSlotResponse,
+    AddRecipientSlotError,
 } from './transport'
 import { PlayerProfileWithPfp } from './types'
 import { getLatestCheckpoints } from './connection'
@@ -64,6 +67,22 @@ export class AppHelper<W> {
         } else {
             this.__transport = transportOrOpts
         }
+    }
+
+    /**
+     * Adds a new slot to an existing recipient account.
+     *
+     * @param wallet - The wallet adapter to sign the transaction.
+     * @param params - The parameters for adding the slot.
+     * @returns A ResponseStream that emits the status of the transaction.
+     */
+    addRecipientSlot(
+        wallet: W,
+        params: AddRecipientSlotParams
+    ): ResponseStream<AddRecipientSlotResponse, AddRecipientSlotError> {
+        const response = new ResponseHandle<AddRecipientSlotResponse, AddRecipientSlotError>();
+        this.__transport.addRecipientSlot(wallet, params, response);
+        return response.stream();
     }
 
     /**
