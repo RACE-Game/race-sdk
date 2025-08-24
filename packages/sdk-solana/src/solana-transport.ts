@@ -937,136 +937,37 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         console.info("Transaction Instruction[CreateAccount]:", ix);
         return { ixs: [ix], account };
     }
-    async _prepareCreateRecipient(
-        payer: TransactionSigner,
-        params: CreateRecipientParams,
-    ): Promise<
-        Result<
-            {
-                recipientAccount: KeyPairSigner;
-                ixs: IInstruction[];
-                signers: KeyPairSigner[];
-            },
-            CreateRecipientError
-        >
-    > {
-        if (params.slots.length > 10) {
-            return { err: "invalid-size" };
-        }
-        let ixs: IInstruction[] = [];
-        let signers: KeyPairSigner[] = [];
-        let capKey: Address;
-        if (params.capAddr === undefined) {
-            capKey = payer.address;
-        } else {
-            capKey = address(params.capAddr);
-        }
-        // Create Recipient Account
-        let { ixs: createRecipientAccountIxs, account: recipientAccount } =
-            await this._prepareCreateAccount(
-                payer,
-                RECIPIENT_ACCOUNT_LEN,
-                PROGRAM_ID,
-            );
-        ixs.push(...createRecipientAccountIxs);
-        signers.push(recipientAccount);
-        // Create Slot Stake Accounts
-        let usedId: number[] = [];
-        let slots: instruction.SlotInit[] = [];
-        for (const slot of params.slots) {
-            // Don't allow duplicated slot id
-            if (usedId.includes(slot.id)) {
-                return { err: "duplicated-id" };
-            } else {
-                usedId.push(slot.id);
-            }
-            let stakeAddr: Address;
-            if (slot.tokenAddr === NATIVE_MINT) {
-                // Use PDA as stake account for SOL slot
-                const [pda] = await getProgramDerivedAddress({
-                    programAddress: PROGRAM_ID,
-                    seeds: [recipientAccount.address, Uint8Array.of(slot.id)],
-                });
 
-                stakeAddr = pda;
-            } else {
-                // Use dedicated stake account
-                const { ixs: createStakeAccountIxs, tokenAccount: stakeAccount } =
-                    await this._prepareCreateTokenAccount(payer, address(slot.tokenAddr));
-                ixs.push(...createStakeAccountIxs);
-                signers.push(stakeAccount);
-                stakeAddr = stakeAccount.address;
-            }
-            const slotInit = new instruction.SlotInit({
-                id: slot.id,
-                tokenAddr: address(slot.tokenAddr),
-                stakeAddr,
-                slotType: slot.slotType === "token" ? 0 : 1,
-                initShares: slot.initShares.map((share) => {
-                    let owner;
-                    if ("addr" in share.owner) {
-                        owner = new RecipientSlotOwnerAssigned({ addr: share.owner.addr });
-                    } else {
-                        owner = new RecipientSlotOwnerUnassigned({
-                            identifier: share.owner.identifier,
-                        });
-                    }
-                    return new instruction.SlotShareInit({
-                        owner,
-                        weights: share.weights,
-                    });
-                }),
-            });
-            slots.push(slotInit);
-        }
-        console.debug("Slots for recipient:", slots);
-        // Initialize Recipient Account
-        const createRecipientIx = instruction.createRecipient({
-            payerKey: payer.address,
-            recipientKey: recipientAccount.address,
-            slots,
-            capKey,
-        });
-        ixs.push(createRecipientIx);
-        return {
-            ok: {
-                ixs,
-                recipientAccount,
-                signers,
-            },
-        };
-    }
     async createRecipient(
         wallet: SolanaWalletAdapterWallet,
         params: CreateRecipientParams,
-        response: ResponseHandle<CreateRecipientResponse, CreateRecipientError>,
+        response: ResponseHandle<CreateRecipientResponse, CreateRecipientError>
     ): Promise<void> {
         const payer = this.useTransactionSendingSigner(wallet);
-        const createRecipient = await this._prepareCreateRecipient(payer, params);
-        if ("err" in createRecipient) {
-            return response.failed(createRecipient.err);
+        const createRecipientResult = await this._prepareCreateRecipient(payer, params);
+        if ("err" in createRecipientResult) {
+            return response.failed(createRecipientResult.err);
         }
-        const { ixs, recipientAccount, signers } = createRecipient.ok;
+
+        const { ixs, recipientAccount, signers } = createRecipientResult.ok;
+
         const tx = await makeTransaction(this.#rpc, payer, ixs);
         if ("err" in tx) {
             return response.retryRequired(tx.err);
         }
-        const transaction = tx.ok;
-        const sig = await sendTransaction(payer, transaction, response, {
-            signers,
-        });
 
-        if ("err" in sig) {
-            return response.transactionFailed(sig.err);
+        const signatureResult = await sendTransaction(payer, tx.ok, response, { signers });
+        if ("err" in signatureResult) {
+            return response.transactionFailed(signatureResult.err);
         }
 
-        const signature = sig.ok;
-
+        const signature = signatureResult.ok;
         await confirmSignature(this.#rpc, signature, response, {
             recipientAddr: recipientAccount.address,
             signature,
         });
     }
+
     async addRecipientSlot(
         wallet: SolanaWalletAdapterWallet,
         params: AddRecipientSlotParams,
@@ -1092,13 +993,11 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         let stakeAddr: Address;
 
         if (tokenMintKey == NATIVE_MINT) {
-            // For SOL slots, use a PDA as the stake account.
             [stakeAddr] = await getProgramDerivedAddress({
                 programAddress: PROGRAM_ID,
                 seeds: [getBase58Encoder().encode(recipientAccountKey), Uint8Array.of(slot.id)],
             });
         } else {
-            // For SPL token slots, create a new dedicated stake account.
             const { ixs: createStakeAccountIxs, tokenAccount: stakeAccount } =
                 await this._prepareCreateTokenAccount(payer, tokenMintKey);
             ixs.push(...createStakeAccountIxs);
@@ -1153,6 +1052,106 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             signature,
         });
     }
+
+
+    async _prepareCreateRecipient(
+        payer: TransactionSendingSigner,
+        params: CreateRecipientParams,
+    ): Promise<
+        Result<
+            {
+                recipientAccount: KeyPairSigner;
+                ixs: IInstruction[];
+                signers: KeyPairSigner[];
+            },
+            CreateRecipientError
+        >
+    > {
+        if (params.slots.length > 10) {
+            return { err: "invalid-size" };
+        }
+        let ixs: IInstruction[] = [];
+        let signers: KeyPairSigner[] = [];
+
+        const capKey = params.capAddr ? address(params.capAddr) : payer.address;
+
+        const { ixs: createRecipientAccountIxs, account: recipientAccount } =
+            await this._prepareCreateAccount(
+                payer,
+                RECIPIENT_ACCOUNT_LEN,
+                PROGRAM_ID,
+            );
+        ixs.push(...createRecipientAccountIxs);
+        signers.push(recipientAccount);
+
+        let usedId: number[] = [];
+        const transformedSlots: instruction.SlotInit[] = [];
+
+        for (const slot of params.slots) {
+            if (usedId.includes(slot.id)) {
+                return { err: "duplicated-id" };
+            }
+            usedId.push(slot.id);
+
+            const tokenMintKey = address(slot.tokenAddr);
+            let stakeAddr: Address;
+
+            if (tokenMintKey == NATIVE_MINT) {
+                [stakeAddr] = await getProgramDerivedAddress({
+                    programAddress: PROGRAM_ID,
+                    seeds: [getBase58Encoder().encode(recipientAccount.address), Uint8Array.of(slot.id)],
+                });
+            } else {
+                const { ixs: createStakeAccountIxs, tokenAccount: stakeAccount } =
+                    await this._prepareCreateTokenAccount(payer, tokenMintKey);
+                ixs.push(...createStakeAccountIxs);
+                signers.push(stakeAccount);
+                stakeAddr = stakeAccount.address;
+            }
+
+            const initShares = slot.initShares.map((share) => {
+                let owner;
+                if ("addr" in share.owner) {
+                    owner = new RecipientSlotOwnerAssigned({ addr: address(share.owner.addr) });
+                } else {
+                    owner = new RecipientSlotOwnerUnassigned({
+                        identifier: share.owner.identifier,
+                    });
+                }
+                return new instruction.SlotShareInit({
+                    owner,
+                    weights: share.weights,
+                });
+            });
+
+            const slotInit = new instruction.SlotInit({
+                id: slot.id,
+                tokenAddr: tokenMintKey,
+                stakeAddr,
+                slotType: slot.slotType === "token" ? 0 : 1,
+                initShares,
+            });
+
+            transformedSlots.push(slotInit);
+        }
+
+        const createRecipientIx = instruction.createRecipient({
+            payerKey: payer.address,
+            recipientKey: recipientAccount.address,
+            slots: transformedSlots,
+            capKey,
+        });
+        ixs.push(createRecipientIx);
+
+        return {
+            ok: {
+                ixs,
+                recipientAccount,
+                signers,
+            },
+        };
+    }
+
     async createRegistration(
         _payer: SolanaWalletAdapterWallet,
         _params: CreateRegistrationParams,
