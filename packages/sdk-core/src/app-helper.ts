@@ -21,6 +21,9 @@ import {
     JoinError,
     DepositResponse,
     DepositError,
+    CreateRecipientParams,
+    CreateRecipientResponse,
+    CreateRecipientError,
     AddRecipientSlotParams,
     AddRecipientSlotResponse,
     AddRecipientSlotError,
@@ -67,6 +70,22 @@ export class AppHelper<W> {
         } else {
             this.__transport = transportOrOpts
         }
+    }
+
+     /**
+     * Creates a new recipient account for distributing funds.
+     *
+     * @param wallet - The wallet adapter to sign the transaction.
+     * @param params - The parameters for creating the recipient account, including slot definitions.
+     * @returns A ResponseStream that emits the status of the transaction.
+     */
+    createRecipient(
+        wallet: W,
+        params: CreateRecipientParams
+    ): ResponseStream<CreateRecipientResponse, CreateRecipientError> {
+        const response = new ResponseHandle<CreateRecipientResponse, CreateRecipientError>();
+        this.__transport.createRecipient(wallet, params, response);
+        return response.stream();
     }
 
     /**
