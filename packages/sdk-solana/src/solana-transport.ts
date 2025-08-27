@@ -32,6 +32,8 @@ import {
     TransactionSendingSignerConfig,
     SignatureBytes,
     MaybeAccount,
+    RpcTransportFromClusterUrl,
+    RpcTransport,
 } from "@solana/web3.js";
 import * as SPL from "@solana-program/token";
 import {
@@ -146,19 +148,40 @@ type SendTransactionOptions = {
 };
 
 export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
+
     #chain: IdentifierString;
-    #rpc: Rpc<SolanaRpcApi>;
-    #dasRpc: Rpc<MetaplexDASApi>;
+    #rpcTransports: RpcTransport[];
+    #nextTransport = 0;
 
     walletAddr(wallet: SolanaWalletAdapterWallet): string {
         return wallet.accounts[0].address;
     }
 
-    constructor(chain: IdentifierString, endpoint: string) {
-        const transport = createDefaultRpcTransport({ url: endpoint });
-        this.#rpc = createSolanaRpcFromTransport(transport);
-        this.#dasRpc = createDasRpc(transport);
+    constructor(chain: IdentifierString, endpoints: string[])
+    constructor(chain: IdentifierString, endpoint: string)
+    constructor(chain: IdentifierString, endpointOrEndponits: string | string[]) {
+        if (typeof endpointOrEndponits == 'string') {
+            this.#rpcTransports = [createDefaultRpcTransport({ url: endpointOrEndponits })];
+        } else {
+            this.#rpcTransports = endpointOrEndponits.map(endpoint => createDefaultRpcTransport({ url: endpoint }));
+        }
+
         this.#chain = chain;
+    }
+
+    roundRobinTransport(): RpcTransport {
+        console.log(`use transport: ${this.#nextTransport}`)
+        const transport = this.#rpcTransports[this.#nextTransport];
+        this.#nextTransport = (this.#nextTransport + 1) % this.#rpcTransports.length;
+        return transport;
+    }
+
+    rpc(): Rpc<SolanaRpcApi> {
+        return createSolanaRpcFromTransport(this.roundRobinTransport());
+    }
+
+    dasRpc(): Rpc<MetaplexDASApi> {
+        return createDasRpc(this.roundRobinTransport());
     }
 
     async createGameAccount(
@@ -249,7 +272,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         console.info("Transaction Instruction[RegisterGame]:", registerGame);
         ixs.push(registerGame);
 
-        const tx = await makeTransaction(this.#rpc, payer, ixs);
+        const tx = await makeTransaction(this.rpc(), payer, ixs);
         if ("err" in tx) {
             return response.retryRequired(tx.err);
         }
@@ -261,7 +284,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
 
         const signature = sig.ok;
 
-        await confirmSignature(this.#rpc, signature, response, {
+        await confirmSignature(this.rpc(), signature, response, {
             gameAddr: gameAccount.address,
             signature,
         });
@@ -342,7 +365,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             gameState,
         });
         ixs.push(closeGameAccountIx);
-        const tx = await makeTransaction(this.#rpc, payer, ixs);
+        const tx = await makeTransaction(this.rpc(), payer, ixs);
         if ("err" in tx) {
             response.retryRequired(tx.err);
             return;
@@ -357,7 +380,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
 
         const signature = sig.ok;
 
-        await confirmSignature(this.#rpc, signature, response, { signature });
+        await confirmSignature(this.rpc(), signature, response, { signature });
     }
 
     async join(
@@ -490,7 +513,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         console.info("Transaction Instruction[Join]:", joinGameIx);
         ixs.push(joinGameIx);
 
-        const tx = await makeTransaction(this.#rpc, payer, ixs);
+        const tx = await makeTransaction(this.rpc(), payer, ixs);
         if ("err" in tx) {
             response.retryRequired(tx.err);
             return;
@@ -506,7 +529,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
 
         const signature = sig.ok;
 
-        await confirmSignature(this.#rpc, signature, response, { signature });
+        await confirmSignature(this.rpc(), signature, response, { signature });
     }
 
     async deposit(
@@ -614,7 +637,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         });
         console.info("Transaction Instruction[Deposit]:", depositGameIx);
         ixs.push(depositGameIx);
-        const tx = await makeTransaction(this.#rpc, payer, ixs);
+        const tx = await makeTransaction(this.rpc(), payer, ixs);
         if ("err" in tx) {
             return response.retryRequired(tx.err);
         }
@@ -628,7 +651,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
 
         const signature = sig.ok;
 
-        await confirmSignature(this.#rpc, signature, response, { signature });
+        await confirmSignature(this.rpc(), signature, response, { signature });
     }
 
     async attachBonus(
@@ -649,7 +672,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         for (const bonus of params.bonuses) {
             const { tokenAddr, amount } = bonus;
             const mintKey = address(tokenAddr);
-            const mint = await SPL.fetchMint(this.#rpc, mintKey, {
+            const mint = await SPL.fetchMint(this.rpc(), mintKey, {
                 commitment: "finalized",
             });
             const { ixs: createTempAccountIxs, tokenAccount: tokenAccount } =
@@ -688,7 +711,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         }
         console.info("Transaction Instruction[attachBonus]:", attachBonusIx.ok);
         ixs.push(attachBonusIx.ok);
-        const tx = await makeTransaction(this.#rpc, payer, ixs);
+        const tx = await makeTransaction(this.rpc(), payer, ixs);
         if ("err" in tx) {
             return response.retryRequired(tx.err);
         }
@@ -699,7 +722,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
 
         const signature = sig.ok;
 
-        await confirmSignature(this.#rpc, signature, response, { signature });
+        await confirmSignature(this.rpc(), signature, response, { signature });
     }
 
     async vote(
@@ -729,7 +752,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         if ("err" in recipientClaimIx) {
             return response.failed(recipientClaimIx.err);
         }
-        const tx = await makeTransaction(this.#rpc, payer, [recipientClaimIx.ok]);
+        const tx = await makeTransaction(this.rpc(), payer, [recipientClaimIx.ok]);
         if ("err" in tx) {
             return response.retryRequired(tx.err);
         }
@@ -740,7 +763,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
 
         const signature = sig.ok;
 
-        await confirmSignature(this.#rpc, signature, response, {
+        await confirmSignature(this.rpc(), signature, response, {
             recipientAddr: params.recipientAddr,
             signature,
         });
@@ -785,7 +808,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             await this._getFinializedBase64AccountData(profileKey);
 
         if (!profileAccountData) {
-            const lamports = await this.#rpc
+            const lamports = await this.rpc()
                 .getMinimumBalanceForRentExemption(PROFILE_ACCOUNT_LEN)
                 .send();
             const ix = getCreateAccountWithSeedInstruction({
@@ -843,7 +866,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         }
         const { ixs: createProfileIxs, profileKey } = createPlayerProfile.ok;
         ixs.push(...createProfileIxs);
-        let tx = await makeTransaction(this.#rpc, payer, ixs);
+        let tx = await makeTransaction(this.rpc(), payer, ixs);
         if ("err" in tx) {
             return response.retryRequired(tx.err);
         }
@@ -854,7 +877,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
 
         const signature = sig.ok;
 
-        await confirmSignature(this.#rpc, signature, response, {
+        await confirmSignature(this.rpc(), signature, response, {
             signature,
             profile: {
                 nick: params.nick,
@@ -870,7 +893,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     ): Promise<{ ixs: IInstruction[]; tokenAccount: KeyPairSigner }> {
         const token = await generateKeyPairSigner();
         const space = SPL.getTokenSize();
-        const rent = await this.#rpc
+        const rent = await this.rpc()
             .getMinimumBalanceForRentExemption(BigInt(space))
             .send();
 
@@ -901,7 +924,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         programAddress: Address,
     ): Promise<{ ixs: IInstruction[]; account: KeyPairSigner }> {
         const account = await generateKeyPairSigner();
-        const lamports = await this.#rpc
+        const lamports = await this.rpc()
             .getMinimumBalanceForRentExemption(size + extraRentSize)
             .send();
 
@@ -922,7 +945,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         programAddress: Address,
     ): Promise<{ ixs: IInstruction[]; account: KeyPairSigner }> {
         const account = await generateKeyPairSigner();
-        const lamports = await this.#rpc
+        const lamports = await this.rpc()
             .getMinimumBalanceForRentExemption(size)
             .send();
 
@@ -951,7 +974,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
 
         const { ixs, recipientAccount, signers } = createRecipientResult.ok;
 
-        const tx = await makeTransaction(this.#rpc, payer, ixs);
+        const tx = await makeTransaction(this.rpc(), payer, ixs);
         if ("err" in tx) {
             return response.retryRequired(tx.err);
         }
@@ -962,7 +985,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         }
 
         const signature = signatureResult.ok;
-        await confirmSignature(this.#rpc, signature, response, {
+        await confirmSignature(this.rpc(), signature, response, {
             recipientAddr: recipientAccount.address,
             signature,
         });
@@ -1035,7 +1058,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         });
         ixs.push(addSlotIx);
 
-        const tx = await makeTransaction(this.#rpc, payer, ixs);
+        const tx = await makeTransaction(this.rpc(), payer, ixs);
         if ("err" in tx) {
             return response.retryRequired(tx.err);
         }
@@ -1047,7 +1070,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
 
         const signature = sig.ok;
 
-        await confirmSignature(this.#rpc, signature, response, {
+        await confirmSignature(this.rpc(), signature, response, {
             recipientAddr,
             signature,
         });
@@ -1151,7 +1174,6 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             },
         };
     }
-
     async createRegistration(
         _payer: SolanaWalletAdapterWallet,
         _params: CreateRegistrationParams,
@@ -1304,11 +1326,11 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         for (const slot of recipientState.slots) {
             let balance;
             if (slot.tokenAddr == NATIVE_MINT) {
-                const resp = (await this.#rpc.getAccountInfo(slot.stakeAddr).send())
+                const resp = (await this.rpc().getAccountInfo(slot.stakeAddr).send())
                     .value;
                 balance = BigInt(resp?.lamports || 0n);
             } else {
-                const resp = await this.#rpc
+                const resp = await this.rpc()
                     .getTokenAccountBalance(slot.stakeAddr)
                     .send();
                 balance = BigInt(resp.value.amount);
@@ -1331,7 +1353,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     async getTokenDecimals(addr: string): Promise<number | undefined> {
         const mintKey = address(addr);
 
-        const mint = await SPL.fetchMint(this.#rpc, mintKey, {
+        const mint = await SPL.fetchMint(this.rpc(), mintKey, {
             commitment: "finalized",
         });
 
@@ -1339,7 +1361,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     }
 
     async _getAssetAsToken(addr: Address): Promise<Token | undefined> {
-        const assetResp = await this.#dasRpc.getAsset(addr).send();
+        const assetResp = await this.dasRpc().getAsset(addr).send();
         if ("result" in assetResp) {
             const asset = assetResp.result;
             const { name, symbol } = asset.content.metadata;
@@ -1403,7 +1425,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             ),
         );
         const tokens = SPL.fetchAllMaybeToken(
-            this.#rpc,
+            this.rpc(),
             atas.map(([ata]) => ata),
         );
         return tokens;
@@ -1421,7 +1443,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         }
         const walletAddr = address(rawWalletAddr);
         const mintAddrs = rawMintAddrs.map((a) => address(a));
-        const rpc = this.#rpc;
+        const rpc = this.rpc();
 
         const [getBalanceResp, getAllMaybeTokenResp] = await Promise.all([
             rpc.getBalance(walletAddr).send(),
@@ -1455,7 +1477,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     }
 
     async getNft(addr: Address): Promise<Nft | undefined> {
-        const resp = await this.#dasRpc.getAsset(addr).send();
+        const resp = await this.dasRpc().getAsset(addr).send();
 
         if ("result" in resp) {
             const item = resp.result;
@@ -1483,7 +1505,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
 
     async listNfts(rawWalletAddr: string): Promise<Nft[]> {
         const walletAddr = address(rawWalletAddr);
-        const resp = await this.#dasRpc
+        const resp = await this.dasRpc()
             .getAssetsByOwner({
                 ownerAddress: walletAddr,
             })
@@ -1520,7 +1542,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     async _getMultiGameStates(
         gameAccountKeys: Address[],
     ): Promise<Array<GameState | undefined>> {
-        const accounts = await this.#rpc
+        const accounts = await this.rpc()
             .getMultipleAccounts(gameAccountKeys)
             .send();
         const ret: Array<GameState | undefined> = [];
@@ -1548,7 +1570,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     async _getMultiPlayersRegStates(
         playersRegAccountKeys: Address[],
     ): Promise<Map<Address, PlayersRegState | undefined>> {
-        const accounts = await this.#rpc
+        const accounts = await this.rpc()
             .getMultipleAccounts(playersRegAccountKeys)
             .send();
 
@@ -1581,7 +1603,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     async _getMultiPlayerStates(
         profileAccountKeys: Address[],
     ): Promise<Array<PlayerState | undefined>> {
-        const accounts = await this.#rpc
+        const accounts = await this.rpc()
             .getMultipleAccounts(profileAccountKeys)
             .send();
         const ret: Array<PlayerState | undefined> = [];
@@ -1612,7 +1634,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         addr: Address,
     ): Promise<Readonly<Uint8Array> | undefined> {
         const value = (
-            await this.#rpc
+            await this.rpc()
                 .getAccountInfo(addr, { commitment: "finalized", encoding: "base64" })
                 .send()
         ).value;
