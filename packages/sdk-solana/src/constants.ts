@@ -1,6 +1,10 @@
-import { Address, address } from '@solana/web3.js'
+import { Address, address } from '@solana/kit'
 
-export const SYSTEM_PROGRAM_ID = address('11111111111111111111111111111111')
+import * as SPL from '@solana-program/token'
+import * as SYSTEM from '@solana-program/system'
+
+export const SYSTEM_PROGRAM_ADDRESS = address(SYSTEM.SYSTEM_PROGRAM_ADDRESS)
+export const TOKEN_PROGRAM_ADDRESS = address(SPL.TOKEN_PROGRAM_ADDRESS)
 export const SYSVAR_RENT = address('SysvarRent111111111111111111111111111111111')
 export const NATIVE_MINT = address('So11111111111111111111111111111111111111112')
 export const PROGRAM_ID: Address = address('C3u1cTJGKP5XzPCvLgQydGWE7aR3x3o5KL8YooFfY4RN')

@@ -1,4 +1,4 @@
-import { Address, getAddressDecoder, getAddressEncoder } from '@solana/web3.js'
+import { Address, getAddressDecoder, getAddressEncoder } from '@solana/kit'
 import { IExtendWriter, IExtendReader, extend } from '@race-foundation/borsh'
 
 class PublicKeyWriter implements IExtendWriter<Address> {

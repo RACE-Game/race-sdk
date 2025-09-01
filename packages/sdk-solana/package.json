@@ -48,9 +48,10 @@
     "@metaplex-foundation/umi": "^0.8.2",
     "@race-foundation/borsh": "*",
     "@race-foundation/sdk-core": "*",
-    "@solana-program/system": "^0.6.2",
-    "@solana-program/token": "^0.4.1",
-    "@solana/web3.js": "^2.0.0",
+    "@solana-program/address-lookup-table": "^0.7.0",
+    "@solana-program/system": "^0.7.0",
+    "@solana-program/token": "^0.5.1",
+    "@solana/kit": "^2.1.0",
     "@wallet-standard/base": "^1.1.0"
   },
   "testDependencies": {

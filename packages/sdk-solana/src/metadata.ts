@@ -1,4 +1,4 @@
-import { Address } from '@solana/web3.js'
+import { Address } from '@solana/kit'
 import { publicKeyExt } from './utils'
 import { deserialize, field, array, struct, option } from '@race-foundation/borsh'
 

@@ -1,7 +1,6 @@
-import * as SPL from '@solana-program/token'
-import * as SYSTEM from '@solana-program/system'
 import { publicKeyExt } from './utils'
-import { PROGRAM_ID, METAPLEX_PROGRAM_ID, SYSVAR_RENT, NATIVE_MINT } from './constants'
+import * as SPL from '@solana-program/token'
+import { PROGRAM_ID, METAPLEX_PROGRAM_ID, SYSVAR_RENT, NATIVE_MINT, SYSTEM_PROGRAM_ADDRESS, TOKEN_PROGRAM_ADDRESS } from './constants'
 import { array, enums, field, serialize, struct } from '@race-foundation/borsh'
 import { EntryType, Fields, RecipientClaimError, AttachBonusError, Result } from '@race-foundation/sdk-core'
 import { AEntryType, GameState, RecipientSlotOwner, RecipientSlotOwnerAssigned, RecipientState } from './accounts'
@@ -12,7 +11,8 @@ import {
     IInstruction,
     getProgramDerivedAddress,
     getBase58Encoder,
-} from '@solana/web3.js'
+    isAddress,
+} from '@solana/kit'
 
 type IxParams<T> = Omit<Fields<T>, 'instruction'>
 
@@ -240,7 +240,7 @@ export function createPlayerProfile(
                 role: AccountRole.READONLY,
             },
             {
-                address: SYSTEM.SYSTEM_PROGRAM_ADDRESS,
+                address: SYSTEM_PROGRAM_ADDRESS,
                 role: AccountRole.READONLY,
             },
         ],
@@ -286,7 +286,7 @@ export function registerGame(opts: RegisterGameOptions): IInstruction {
                 role: AccountRole.READONLY,
             },
             {
-                address: SYSTEM.SYSTEM_PROGRAM_ADDRESS,
+                address: SYSTEM_PROGRAM_ADDRESS,
                 role: AccountRole.READONLY,
             },
         ],
@@ -327,7 +327,7 @@ export function createGameAccount(opts: CreateGameOptions): IInstruction {
                 role: AccountRole.READONLY,
             },
             {
-                address: SPL.TOKEN_PROGRAM_ADDRESS,
+                address: TOKEN_PROGRAM_ADDRESS,
                 role: AccountRole.READONLY,
             },
             {
@@ -339,7 +339,7 @@ export function createGameAccount(opts: CreateGameOptions): IInstruction {
                 role: AccountRole.READONLY,
             },
             {
-                address: SYSTEM.SYSTEM_PROGRAM_ADDRESS,
+                address: SYSTEM_PROGRAM_ADDRESS,
                 role: AccountRole.READONLY,
             },
         ],
@@ -430,11 +430,11 @@ export function join(opts: JoinOptions): IInstruction {
                 role: AccountRole.WRITABLE,
             },
             {
-                address: SPL.TOKEN_PROGRAM_ADDRESS,
+                address: TOKEN_PROGRAM_ADDRESS,
                 role: AccountRole.READONLY,
             },
             {
-                address: SYSTEM.SYSTEM_PROGRAM_ADDRESS,
+                address: SYSTEM_PROGRAM_ADDRESS,
                 role: AccountRole.READONLY,
             },
         ],
@@ -508,11 +508,11 @@ export function deposit(opts: DepositOpts): IInstruction {
                 role: AccountRole.WRITABLE,
             },
             {
-                address: SPL.TOKEN_PROGRAM_ADDRESS,
+                address: TOKEN_PROGRAM_ADDRESS,
                 role: AccountRole.READONLY,
             },
             {
-                address: SYSTEM.SYSTEM_PROGRAM_ADDRESS,
+                address: SYSTEM_PROGRAM_ADDRESS,
                 role: AccountRole.READONLY,
             },
         ],
@@ -561,7 +561,7 @@ export function publishGame(opts: PublishGameOptions): IInstruction {
                 role: AccountRole.READONLY,
             },
             {
-                address: SPL.TOKEN_PROGRAM_ADDRESS,
+                address: TOKEN_PROGRAM_ADDRESS,
                 role: AccountRole.READONLY,
             },
             {
@@ -573,7 +573,7 @@ export function publishGame(opts: PublishGameOptions): IInstruction {
                 role: AccountRole.READONLY,
             },
             {
-                address: SYSTEM.SYSTEM_PROGRAM_ADDRESS,
+                address: SYSTEM_PROGRAM_ADDRESS,
                 role: AccountRole.READONLY,
             },
         ],
@@ -606,11 +606,11 @@ export function createRecipient(opts: CreateRecipientOpts): IInstruction {
             role: AccountRole.READONLY,
         },
         {
-            address: SPL.TOKEN_PROGRAM_ADDRESS,
+            address: TOKEN_PROGRAM_ADDRESS,
             role: AccountRole.READONLY,
         },
         {
-            address: SYSTEM.SYSTEM_PROGRAM_ADDRESS,
+            address: SYSTEM_PROGRAM_ADDRESS,
             role: AccountRole.READONLY,
         },
     ]
@@ -645,11 +645,11 @@ export function attachBonus(opts: AttachBonusOpts): Result<IInstruction, AttachB
             role: AccountRole.WRITABLE,
         },
         {
-            address: SPL.TOKEN_PROGRAM_ADDRESS,
+            address: TOKEN_PROGRAM_ADDRESS,
             role: AccountRole.READONLY,
         },
         {
-            address: SYSTEM.SYSTEM_PROGRAM_ADDRESS,
+            address: SYSTEM_PROGRAM_ADDRESS,
             role: AccountRole.READONLY,
         },
         ...opts.tempAccountKeys.map(k => ({
@@ -694,11 +694,11 @@ export async function claim(opts: ClaimOpts): Promise<Result<IInstruction, Recip
             role: AccountRole.WRITABLE,
         },
         {
-            address: SPL.TOKEN_PROGRAM_ADDRESS,
+            address: TOKEN_PROGRAM_ADDRESS,
             role: AccountRole.READONLY,
         },
         {
-            address: SYSTEM.SYSTEM_PROGRAM_ADDRESS,
+            address: SYSTEM_PROGRAM_ADDRESS,
             role: AccountRole.READONLY,
         },
     ]
@@ -730,7 +730,7 @@ export async function claim(opts: ClaimOpts): Promise<Result<IInstruction, Recip
                     const [ata] = await SPL.findAssociatedTokenPda({
                         mint: address(slot.tokenAddr),
                         owner: address(slotShare.owner.addr),
-                        tokenProgram: SPL.TOKEN_PROGRAM_ADDRESS,
+                        tokenProgram: TOKEN_PROGRAM_ADDRESS,
                     })
                     accounts.push({
                         address: ata,
@@ -822,11 +822,11 @@ export async function closeGame(opts: CloseGameAccountOpts): Promise<IInstructio
             role: AccountRole.WRITABLE,
         },
         {
-            address: SPL.TOKEN_PROGRAM_ADDRESS,
+            address: TOKEN_PROGRAM_ADDRESS,
             role: AccountRole.READONLY,
         },
         {
-            address: SYSTEM.SYSTEM_PROGRAM_ADDRESS,
+            address: SYSTEM_PROGRAM_ADDRESS,
             role: AccountRole.READONLY,
         },
     ]
@@ -835,7 +835,7 @@ export async function closeGame(opts: CloseGameAccountOpts): Promise<IInstructio
         const [ata] = await SPL.findAssociatedTokenPda({
             mint: address(bonus.tokenAddr),
             owner: address(payerKey),
-            tokenProgram: SPL.TOKEN_PROGRAM_ADDRESS,
+            tokenProgram: TOKEN_PROGRAM_ADDRESS,
         })
 
         accounts.push(
@@ -870,8 +870,8 @@ export function addRecipientSlot(opts: AddRecipientSlotOpts): IInstruction {
         { address: payerKey, role: AccountRole.READONLY_SIGNER },
         { address: recipientKey, role: AccountRole.WRITABLE },
         { address: slot.stakeAddr, role: AccountRole.READONLY },
-        { address: SPL.TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },
-        { address: SYSTEM.SYSTEM_PROGRAM_ADDRESS, role: AccountRole.READONLY },
+        { address: TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },
+        { address: SYSTEM_PROGRAM_ADDRESS, role: AccountRole.READONLY },
     ]
 
     const data = new AddRecipientSlotData({ slot }).serialize()

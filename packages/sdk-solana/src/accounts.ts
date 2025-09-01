@@ -1,4 +1,4 @@
-import { Address } from '@solana/web3.js'
+import { Address } from '@solana/kit'
 import { publicKeyExt } from './utils'
 import * as RaceCore from '@race-foundation/sdk-core'
 import { deserialize, serialize, field, option, array, struct, enums, variant } from '@race-foundation/borsh'

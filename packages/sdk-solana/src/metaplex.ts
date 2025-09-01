@@ -7,7 +7,7 @@ import {
     RpcResponse,
     RpcResponseData,
     RpcTransport,
-} from '@solana/web3.js'
+} from '@solana/kit'
 
 type Asset = Readonly<{
     interface: any

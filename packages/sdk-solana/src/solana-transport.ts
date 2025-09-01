@@ -34,7 +34,7 @@ import {
     MaybeAccount,
     RpcTransportFromClusterUrl,
     RpcTransport,
-} from '@solana/web3.js'
+} from '@solana/kit'
 import * as SPL from '@solana-program/token'
 import {
     ITransport,
@@ -186,6 +186,8 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         response: ResponseHandle<CreateGameResponse, CreateGameError>
     ): Promise<void> {
         console.log('Create game:', params)
+        const walletAccount = wallet.accounts[0]
+
         const payer = this.useTransactionSendingSigner(wallet)
         const { title, bundleAddr, tokenAddr, sponsorPlayerSlots } = params
         if (title.length > NAME_LEN) {
@@ -1599,6 +1601,11 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         } else {
             return undefined
         }
+    }
+
+    async fixRecipientAddressTable(recipientAddr: Address): Promise<void> {
+        const recipientState = this._getRecipientState(recipientAddr)
+
     }
 
     // port from https://github.com/anza-xyz/kit/blob/66808064e8251c452a4c339791b2985bf488e514/packages/react/src/useWalletAccountTransactionSendingSigner.ts
