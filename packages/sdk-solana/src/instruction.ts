@@ -204,14 +204,14 @@ export class AttachBonusData extends Serialize {
 
 export class AddRecipientSlotData extends Serialize {
     @field('u8')
-    instruction = Instruction.AddRecipientSlot;
+    instruction = Instruction.AddRecipientSlot
 
     @field(struct(SlotInit))
-    slot!: SlotInit;
+    slot!: SlotInit
 
     constructor(params: IxParams<AddRecipientSlotData>) {
-        super();
-        Object.assign(this, params);
+        super()
+        Object.assign(this, params)
     }
 }
 
@@ -383,7 +383,13 @@ export function join(opts: JoinOptions): IInstruction {
         pda,
     } = opts
 
-    const data = new JoinGameData({ amount, accessVersion, settleVersion, position, verifyKey }).serialize()
+    const data = new JoinGameData({
+        amount,
+        accessVersion,
+        settleVersion,
+        position,
+        verifyKey,
+    }).serialize()
 
     return {
         accounts: [
@@ -462,7 +468,7 @@ export function deposit(opts: DepositOpts): IInstruction {
         stakeAccountKey,
         amount,
         settleVersion,
-        pda
+        pda,
     } = opts
 
     const data = new DepositGameData({ amount, settleVersion }).serialize()
@@ -606,7 +612,7 @@ export function createRecipient(opts: CreateRecipientOpts): IInstruction {
         {
             address: SYSTEM.SYSTEM_PROGRAM_ADDRESS,
             role: AccountRole.READONLY,
-        }
+        },
     ]
 
     slots.forEach(slot => accounts.push({ address: slot.stakeAddr, role: AccountRole.READONLY }))
@@ -676,9 +682,7 @@ export type ClaimOpts = {
 }
 
 export async function claim(opts: ClaimOpts): Promise<Result<IInstruction, RecipientClaimError>> {
-    const {
-
-    } = opts
+    const {} = opts
 
     let accounts = [
         {
@@ -700,7 +704,10 @@ export async function claim(opts: ClaimOpts): Promise<Result<IInstruction, Recip
     ]
 
     for (const slot of opts.recipientState.slots) {
-        const [pda, _] = await getProgramDerivedAddress({ programAddress: PROGRAM_ID, seeds: [getBase58Encoder().encode(opts.recipientKey), Uint8Array.of(slot.id)] })
+        const [pda, _] = await getProgramDerivedAddress({
+            programAddress: PROGRAM_ID,
+            seeds: [getBase58Encoder().encode(opts.recipientKey), Uint8Array.of(slot.id)],
+        })
 
         for (const slotShare of slot.shares) {
             if (slotShare.owner instanceof RecipientSlotOwnerAssigned && slotShare.owner.addr === opts.payerKey) {
@@ -720,11 +727,10 @@ export async function claim(opts: ClaimOpts): Promise<Result<IInstruction, Recip
                         role: AccountRole.WRITABLE,
                     })
                 } else {
-
                     const [ata] = await SPL.findAssociatedTokenPda({
                         mint: address(slot.tokenAddr),
                         owner: address(slotShare.owner.addr),
-                        tokenProgram: SPL.TOKEN_PROGRAM_ADDRESS
+                        tokenProgram: SPL.TOKEN_PROGRAM_ADDRESS,
                     })
                     accounts.push({
                         address: ata,
@@ -829,16 +835,19 @@ export async function closeGame(opts: CloseGameAccountOpts): Promise<IInstructio
         const [ata] = await SPL.findAssociatedTokenPda({
             mint: address(bonus.tokenAddr),
             owner: address(payerKey),
-            tokenProgram: SPL.TOKEN_PROGRAM_ADDRESS
+            tokenProgram: SPL.TOKEN_PROGRAM_ADDRESS,
         })
 
-        accounts.push({
-            address: bonus.stakeAddr,
-            role: AccountRole.WRITABLE,
-        }, {
-            address: ata,
-            role: AccountRole.WRITABLE
-        })
+        accounts.push(
+            {
+                address: bonus.stakeAddr,
+                role: AccountRole.WRITABLE,
+            },
+            {
+                address: ata,
+                role: AccountRole.WRITABLE,
+            }
+        )
     }
 
     return {
@@ -849,13 +858,13 @@ export async function closeGame(opts: CloseGameAccountOpts): Promise<IInstructio
 }
 
 export type AddRecipientSlotOpts = {
-    payerKey: Address;
-    recipientKey: Address;
-    slot: SlotInit;
-};
+    payerKey: Address
+    recipientKey: Address
+    slot: SlotInit
+}
 
 export function addRecipientSlot(opts: AddRecipientSlotOpts): IInstruction {
-    const { payerKey, recipientKey, slot } = opts;
+    const { payerKey, recipientKey, slot } = opts
 
     let accounts = [
         { address: payerKey, role: AccountRole.READONLY_SIGNER },
@@ -863,13 +872,13 @@ export function addRecipientSlot(opts: AddRecipientSlotOpts): IInstruction {
         { address: slot.stakeAddr, role: AccountRole.READONLY },
         { address: SPL.TOKEN_PROGRAM_ADDRESS, role: AccountRole.READONLY },
         { address: SYSTEM.SYSTEM_PROGRAM_ADDRESS, role: AccountRole.READONLY },
-    ];
+    ]
 
-    const data = new AddRecipientSlotData({ slot }).serialize();
+    const data = new AddRecipientSlotData({ slot }).serialize()
 
     return {
         accounts,
         programAddress: PROGRAM_ID,
         data,
-    };
+    }
 }

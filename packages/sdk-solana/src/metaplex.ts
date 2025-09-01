@@ -1,4 +1,13 @@
-import { Address, createJsonRpcApi, createRpc, Rpc, RpcRequest, RpcResponse, RpcResponseData, RpcTransport } from '@solana/web3.js'
+import {
+    Address,
+    createJsonRpcApi,
+    createRpc,
+    Rpc,
+    RpcRequest,
+    RpcResponse,
+    RpcResponseData,
+    RpcTransport,
+} from '@solana/web3.js'
 
 type Asset = Readonly<{
     interface: any
@@ -6,10 +15,12 @@ type Asset = Readonly<{
     token_info: {
         decimals: number
     }
-    grouping: Readonly<{
-        group_key: string
-        group_value: string
-    }[]>
+    grouping: Readonly<
+        {
+            group_key: string
+            group_value: string
+        }[]
+    >
     content: Readonly<{
         files?: readonly {
             mime?: string
@@ -43,19 +54,17 @@ type SortCriteria = {
 
 // Set up a type spec for the request method.
 export type MetaplexDASApi = {
-    getAsset(id: Address): RpcResponseData<GetAssetResponse>;
+    getAsset(id: Address): RpcResponseData<GetAssetResponse>
 
-    getAssetsByOwner(
-        input: {
-            ownerAddress: Address,
-            sortBy?: SortCriteria,
-            limit?: number,
-            page?: number,
-            before?: Address,
-            after?: Address,
-        }
-    ): RpcResponseData<GetAssetsByOwnerResponse>
-};
+    getAssetsByOwner(input: {
+        ownerAddress: Address
+        sortBy?: SortCriteria
+        limit?: number
+        page?: number
+        before?: Address
+        after?: Address
+    }): RpcResponseData<GetAssetsByOwnerResponse>
+}
 
 export function createDasRpc(transport: RpcTransport): Rpc<MetaplexDASApi> {
     const jsonRpcConfig = {
@@ -68,7 +77,7 @@ export function createDasRpc(transport: RpcTransport): Rpc<MetaplexDASApi> {
             } else {
                 return request
             }
-        }
+        },
     }
     const api = createJsonRpcApi<MetaplexDASApi>(jsonRpcConfig)
     return createRpc({ api, transport })
