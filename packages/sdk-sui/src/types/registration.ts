@@ -28,7 +28,7 @@ export const RegistrationAccountParser: Parser<RegistrationAccount, typeof Regis
             isPrivate: input.isPrivate,
             size: input.size,
             owner: input.owner ?? undefined,
-            games: Array.from(input.games).map((game) => ({
+            games: Array.from(input.games).map(game => ({
                 title: game.title,
                 addr: game.addr,
                 bundleAddr: game.bundleAddr,

@@ -225,7 +225,6 @@ export class Bonus {
     }
 }
 
-
 export type VoteType = Indices<typeof VOTE_TYPES>
 
 export class Vote {
@@ -248,7 +247,6 @@ export class Vote {
 }
 
 export type EntryLock = Indices<typeof ENTRY_LOCKS>
-
 
 export class PlayerBalance {
     @field('u64')

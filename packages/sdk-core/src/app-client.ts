@@ -113,7 +113,6 @@ export class AppClient extends BaseClient {
             let startTime = new Date().getTime()
             console.info(`Player address: ${playerAddr}`)
 
-
             const gameAccount = await transport.getGameAccount(gameAddr)
             console.info('Game Account:', gameAccount)
             if (gameAccount === undefined) {
@@ -144,7 +143,6 @@ export class AppClient extends BaseClient {
             const endpoint = transactorAccount.endpoint
             const connection = Connection.initialize(gameAddr, playerAddr, endpoint, encryptor)
             const profileLoader = new ProfileLoader(transport, storage, onProfile)
-
 
             console.info(`Connected with transactor: ${endpoint}`)
             const client = new Client(playerAddr, encryptor, connection)
@@ -193,7 +191,7 @@ export class AppClient extends BaseClient {
             }
             const info = makeGameInfo(gameAccount, token)
 
-            const cost = new Date().getTime() - startTime;
+            const cost = new Date().getTime() - startTime
             console.info(`Initialization costed ${cost} ms`)
 
             const onReadyWithLoadingProfile = (ctx: GameContextSnapshot, state: Uint8Array) => {
@@ -224,7 +222,7 @@ export class AppClient extends BaseClient {
                 decryptionCache,
                 profileLoader,
                 endpoint,
-                maxRetries: _maxRetries
+                maxRetries: _maxRetries,
             })
         } finally {
             console.groupEnd()
@@ -351,16 +349,11 @@ export class AppClient extends BaseClient {
     makeSubGameAddr(gameId: number): string {
         return `${this.__gameAddr}:${gameId}`
     }
-
 }
 
 // Miscellaneous
 
-export async function getGameBundle<W>(
-    transport: ITransport<W>,
-    bundleAddr: string
-): Promise<GameBundle> {
-
+export async function getGameBundle<W>(transport: ITransport<W>, bundleAddr: string): Promise<GameBundle> {
     let gameBundle = await transport.getGameBundle(bundleAddr)
     console.debug('Game bundle:', gameBundle)
 

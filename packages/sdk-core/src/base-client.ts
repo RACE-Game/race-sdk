@@ -395,7 +395,7 @@ export class BaseClient {
                 console.groupEnd()
             }
         } else if (frame instanceof BroadcastFrameSync) {
-            await this.__handleSync(frame);
+            await this.__handleSync(frame)
         } else if (frame instanceof BroadcastFrameEvent) {
             await this.__handleEvent(frame)
         } else if (frame instanceof BroadcastFrameBacklogs) {
@@ -405,7 +405,7 @@ export class BaseClient {
             if (this.__gameId !== 0) {
                 const versionedData = frame.checkpointOffChain?.data.get(this.__gameId)
                 if (versionedData === undefined) {
-                    console.warn('Invalid versioned data', versionedData);
+                    console.warn('Invalid versioned data', versionedData)
                     throw new Error('Missing checkpoint, mostly a bug')
                 }
                 this.__gameContext.checkpoint.initVersionedData(versionedData)
@@ -448,9 +448,11 @@ export class BaseClient {
     }
 
     __connect() {
-        this.__connection.connect(new ConnectParams({
-            settleVersion: this.__gameContext.versions.settleVersion
-        }))
+        this.__connection.connect(
+            new ConnectParams({
+                settleVersion: this.__gameContext.versions.settleVersion,
+            })
+        )
     }
 
     __startSubscribe() {

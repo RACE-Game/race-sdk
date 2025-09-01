@@ -14,7 +14,7 @@ export class BalanceChangeAdd extends BalanceChange {
     amount: bigint
     constructor(fields: Fields<BalanceChangeAdd>) {
         super()
-        this.amount = fields.amount;
+        this.amount = fields.amount
     }
 }
 
@@ -24,7 +24,7 @@ export class BalanceChangeSub extends BalanceChange {
     amount: bigint
     constructor(fields: Fields<BalanceChangeSub>) {
         super()
-        this.amount = fields.amount;
+        this.amount = fields.amount
     }
 }
 
@@ -74,7 +74,6 @@ export class Withdraw {
         this.amount = fields.amount
     }
 }
-
 
 export class PlayerBalance {
     @field('u64')

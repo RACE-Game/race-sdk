@@ -24,7 +24,7 @@ const RecipientSlotShareSchema = bcs.struct('RecipientSlotShare', {
 
 const SlotTypeSchema = bcs.enum('RecipientSlotType', {
     Nft: null,
-    Token: null
+    Token: null,
 })
 
 // Define the schema for RecipientSlot
@@ -56,13 +56,14 @@ export const RecipientAccountParser: Parser<RecipientAccount, typeof RecipientAc
                 slotType: RECIPIENT_SLOT_TYPES[slot.slotType],
                 tokenAddr: slot.tokenAddr,
                 shares: Array.from(slot.shares).map(share => ({
-                    owner: 'unassigned' in share.owner && share.owner.unassigned
-                        ? { identifier: share.owner.unassigned.identifier, kind: 'unassigned' }
-                        : { addr: share.owner.assigned.addr, kind: 'assigned' },
+                    owner:
+                        'unassigned' in share.owner && share.owner.unassigned
+                            ? { identifier: share.owner.unassigned.identifier, kind: 'unassigned' }
+                            : { addr: share.owner.assigned.addr, kind: 'assigned' },
                     weights: share.weights,
-                    claimAmount: BigInt(share.claimAmount)
+                    claimAmount: BigInt(share.claimAmount),
                 })),
-                balance: BigInt(slot.balance)
+                balance: BigInt(slot.balance),
             })),
         }
     },

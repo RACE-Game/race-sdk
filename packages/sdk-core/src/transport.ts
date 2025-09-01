@@ -88,7 +88,12 @@ export type DepositResponse = {
     signature: string
 }
 
-export type DepositError = 'profile-not-found' | 'invalid-deposit-amount' | 'game-not-served' | 'game-not-found' | 'unsupported-entry-type'
+export type DepositError =
+    | 'profile-not-found'
+    | 'invalid-deposit-amount'
+    | 'game-not-served'
+    | 'game-not-found'
+    | 'unsupported-entry-type'
 
 export type VoteParams = {
     gameAddr: string
@@ -189,19 +194,22 @@ export type CloseGameAccountError =
 export type AttachBonusError = 'bonuses-is-full' | 'game-not-found' | 'too-much-bonuses'
 
 export type AddRecipientSlotParams = {
-    recipientAddr: string;
-    slot: RecipientSlotInit;
-};
+    recipientAddr: string
+    slot: RecipientSlotInit
+}
 
 export type AddRecipientSlotResponse = {
-    recipientAddr: string;
-    signature: string;
-};
+    recipientAddr: string
+    signature: string
+}
 
-export type AddRecipientSlotError = 'recipient-not-found' | 'slot-id-exists' | 'invalid-slot-params' | 'unsupported-entry-type';
+export type AddRecipientSlotError =
+    | 'recipient-not-found'
+    | 'slot-id-exists'
+    | 'invalid-slot-params'
+    | 'unsupported-entry-type'
 
 export interface ITransport<W = never> {
-
     walletAddr(wallet: W): string
 
     createGameAccount(
@@ -210,7 +218,11 @@ export interface ITransport<W = never> {
         resp: ResponseHandle<CreateGameResponse, CreateGameError>
     ): Promise<void>
 
-    closeGameAccount(wallet: W, params: CloseGameAccountParams, resp: ResponseHandle<CloseGameAccountResponse, CloseGameAccountError>): Promise<void>
+    closeGameAccount(
+        wallet: W,
+        params: CloseGameAccountParams,
+        resp: ResponseHandle<CloseGameAccountResponse, CloseGameAccountError>
+    ): Promise<void>
 
     join(wallet: W, params: JoinParams, resp: ResponseHandle<JoinResponse, JoinError>): Promise<void>
 
@@ -234,7 +246,7 @@ export interface ITransport<W = never> {
         wallet: W,
         params: AddRecipientSlotParams,
         resp: ResponseHandle<AddRecipientSlotResponse, AddRecipientSlotError>
-    ): Promise<void>;
+    ): Promise<void>
 
     registerGame(
         wallet: W,
@@ -248,7 +260,11 @@ export interface ITransport<W = never> {
         resp: ResponseHandle<RecipientClaimResponse, RecipientClaimError>
     ): Promise<void>
 
-    attachBonus(wallet: W, params: AttachBonusParams, resp: ResponseHandle<AttachBonusResponse, AttachBonusError>): Promise<void>;
+    attachBonus(
+        wallet: W,
+        params: AttachBonusParams,
+        resp: ResponseHandle<AttachBonusResponse, AttachBonusError>
+    ): Promise<void>
 
     unregisterGame(wallet: W, params: UnregisterGameParams, resp: ResponseHandle): Promise<void>
 

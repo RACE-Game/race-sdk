@@ -9,22 +9,17 @@ import {
     SuiObjectResponse,
 } from '@mysten/sui/client'
 import { SharedObjectRef } from '@mysten/sui/dist/cjs/bcs/types'
-import {
-    ResponseHandle,
-} from '@race-foundation/sdk-core'
+import { ResponseHandle } from '@race-foundation/sdk-core'
 import { LocalSuiWallet } from './local-wallet'
 import { ISigner, TxResult } from './signer'
 
-import {
-    Parser,
-} from './types'
+import { Parser } from './types'
 
 export async function resolveObjectCreatedByType(
     suiClient: SuiClient,
     result: TxResult,
-    objectType: string,
+    objectType: string
 ): Promise<SuiObjectChangeCreated | undefined> {
-
     const txBlock = await suiClient.getTransactionBlock({ digest: result.digest, options: { showObjectChanges: true } })
 
     if (!txBlock.objectChanges) {
@@ -44,9 +39,8 @@ export async function resolveObjectCreatedByType(
 export async function resolveObjectMutatedByType(
     suiClient: SuiClient,
     result: TxResult,
-    objectType: string,
+    objectType: string
 ): Promise<SuiObjectChangeMutated | undefined> {
-
     const txBlock = await suiClient.getTransactionBlock({ digest: result.digest, options: { showObjectChanges: true } })
 
     if (!txBlock.objectChanges) {
@@ -90,8 +84,12 @@ export function parseSingleObjectResponse(resp: SuiObjectResponse): SuiObjectDat
     return objData ? objData : undefined
 }
 
-export async function getOwnedObjectRef(suiClient: SuiClient, owner: string, structType: string): Promise<SuiObjectRef | undefined> {
-    const objsRes = await suiClient.getOwnedObjects({ owner, filter: { StructType: structType }, limit: 1})
+export async function getOwnedObjectRef(
+    suiClient: SuiClient,
+    owner: string,
+    structType: string
+): Promise<SuiObjectRef | undefined> {
+    const objsRes = await suiClient.getOwnedObjects({ owner, filter: { StructType: structType }, limit: 1 })
 
     if ('error' in objsRes) {
         console.error(objsRes.error, 'Get owned object ref failed')
@@ -129,7 +127,11 @@ export async function getOwnedObjectRef(suiClient: SuiClient, owner: string, str
     }
 }
 
-export async function getSharedObjectRef(suiClient: SuiClient, id: string, mutable: boolean): Promise<SharedObjectRef | undefined> {
+export async function getSharedObjectRef(
+    suiClient: SuiClient,
+    id: string,
+    mutable: boolean
+): Promise<SharedObjectRef | undefined> {
     const objRes: SuiObjectResponse = await suiClient.getObject({
         id,
         options: { showOwner: true },
@@ -156,13 +158,13 @@ export async function getSharedObjectRef(suiClient: SuiClient, id: string, mutab
     return {
         objectId: id,
         initialSharedVersion,
-        mutable
+        mutable,
     }
 }
 
 export function parseObjectData<T, S extends BcsType<S['$inferInput']>>(
     objData: SuiObjectData | undefined,
-    parser: Parser<T, S>,
+    parser: Parser<T, S>
 ): undefined | T {
     if (objData === undefined) {
         return undefined

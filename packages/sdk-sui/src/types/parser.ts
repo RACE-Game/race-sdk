@@ -5,10 +5,9 @@ export const Address = bcs.bytes(32).transform({
     output: val => `0x${toHex(val)}`,
 })
 
-export type Parser<R, S> =
-    S extends BcsType<infer T, infer _Input>
-        ? {
-              schema: S
-              transform: (input: T) => R
-          }
-        : never
+export type Parser<R, S> = S extends BcsType<infer T, infer _Input>
+    ? {
+          schema: S
+          transform: (input: T) => R
+      }
+    : never

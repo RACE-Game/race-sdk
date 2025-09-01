@@ -1,6 +1,6 @@
-import { Nft, Token } from "./accounts"
-import { EncryptorExportedKeys } from "./encryptor"
-import { PlayerProfileWithPfp } from "./types"
+import { Nft, Token } from './accounts'
+import { EncryptorExportedKeys } from './encryptor'
+import { PlayerProfileWithPfp } from './types'
 
 const DB_KEY = 'race-protocol'
 const DB_VER = 2
@@ -24,7 +24,6 @@ export interface IStorage {
 }
 
 export class Storage implements IStorage {
-
     constructor() {
         const request = indexedDB.open(DB_KEY, DB_VER)
         request.onupgradeneeded = (_e: IDBVersionChangeEvent) => {
@@ -64,8 +63,7 @@ export class Storage implements IStorage {
             // Allow replace the old one
             store.put(profile)
 
-            tx.oncomplete = () => {
-            }
+            tx.oncomplete = () => {}
             tx.onerror = () => {
                 console.error(tx.error, 'Failed to cache profile')
             }
@@ -101,8 +99,7 @@ export class Storage implements IStorage {
             let store = tx.objectStore('tokens')
             tokens.forEach(token => store.add(token))
 
-            tx.oncomplete = () => {
-            }
+            tx.oncomplete = () => {}
             tx.onerror = () => {
                 console.error(tx.error, 'Failed to cache tokens')
             }
@@ -124,14 +121,14 @@ export class Storage implements IStorage {
                     read.onsuccess = _e => {
                         const token = read.result as Token | undefined
                         results.push(token)
-                        count ++
+                        count++
                         if (count === tokenAddrs.length) {
                             resolve(results)
                         }
                     }
                     read.onerror = _e => {
                         console.error(read.error, 'Error fetching token')
-                        count ++
+                        count++
                     }
                 }
             }

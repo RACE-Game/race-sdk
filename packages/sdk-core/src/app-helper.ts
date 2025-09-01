@@ -72,7 +72,7 @@ export class AppHelper<W> {
         }
     }
 
-     /**
+    /**
      * Creates a new recipient account for distributing funds.
      *
      * @param wallet - The wallet adapter to sign the transaction.
@@ -83,9 +83,9 @@ export class AppHelper<W> {
         wallet: W,
         params: CreateRecipientParams
     ): ResponseStream<CreateRecipientResponse, CreateRecipientError> {
-        const response = new ResponseHandle<CreateRecipientResponse, CreateRecipientError>();
-        this.__transport.createRecipient(wallet, params, response);
-        return response.stream();
+        const response = new ResponseHandle<CreateRecipientResponse, CreateRecipientError>()
+        this.__transport.createRecipient(wallet, params, response)
+        return response.stream()
     }
 
     /**
@@ -99,9 +99,9 @@ export class AppHelper<W> {
         wallet: W,
         params: AddRecipientSlotParams
     ): ResponseStream<AddRecipientSlotResponse, AddRecipientSlotError> {
-        const response = new ResponseHandle<AddRecipientSlotResponse, AddRecipientSlotError>();
-        this.__transport.addRecipientSlot(wallet, params, response);
-        return response.stream();
+        const response = new ResponseHandle<AddRecipientSlotResponse, AddRecipientSlotError>()
+        this.__transport.addRecipientSlot(wallet, params, response)
+        return response.stream()
     }
 
     /**
@@ -210,9 +210,9 @@ export class AppHelper<W> {
         gameAddr: string,
         bonuses: AttachBonusItem[]
     ): ResponseStream<AttachBonusResponse, AttachBonusError> {
-        const response = new ResponseHandle<AttachBonusResponse, AttachBonusError>();
+        const response = new ResponseHandle<AttachBonusResponse, AttachBonusError>()
 
-        this.__transport.attachBonus(wallet, { gameAddr, bonuses }, response);
+        this.__transport.attachBonus(wallet, { gameAddr, bonuses }, response)
 
         return response.stream()
     }
@@ -230,11 +230,11 @@ export class AppHelper<W> {
         regAddr: string,
         gameAddr: string
     ): ResponseStream<CloseGameAccountResponse, CloseGameAccountError> {
-        const response = new ResponseHandle<CloseGameAccountResponse, CloseGameAccountError>();
+        const response = new ResponseHandle<CloseGameAccountResponse, CloseGameAccountError>()
 
-        this.__transport.closeGameAccount(wallet, { regAddr, gameAddr }, response);
+        this.__transport.closeGameAccount(wallet, { regAddr, gameAddr }, response)
 
-        return response.stream();
+        return response.stream()
     }
 
     /**
@@ -245,49 +245,51 @@ export class AppHelper<W> {
      * @returns The latest checkpoint from transactor or undefined when it's not available.
      */
     async fetchLatestCheckpoints(gameAccounts: GameAccount[]): Promise<(CheckpointOffChain | undefined)[]> {
-        const endpointToAddrs = new Map<string, string[]>();
-        const addrToGameAccountIndex = new Map<string, number>();
+        const endpointToAddrs = new Map<string, string[]>()
+        const addrToGameAccountIndex = new Map<string, number>()
 
         gameAccounts.forEach((gameAccount, index) => {
-            const { addr, transactorAddr, servers } = gameAccount;
+            const { addr, transactorAddr, servers } = gameAccount
 
             if (transactorAddr) {
-                const server = servers.find(s => s.addr === transactorAddr);
+                const server = servers.find(s => s.addr === transactorAddr)
                 if (server) {
-                    const endpoint = server.endpoint;
+                    const endpoint = server.endpoint
                     if (!endpointToAddrs.has(endpoint)) {
-                        endpointToAddrs.set(endpoint, []);
+                        endpointToAddrs.set(endpoint, [])
                     }
-                    endpointToAddrs.get(endpoint)!.push(addr);
-                    addrToGameAccountIndex.set(addr, index);
+                    endpointToAddrs.get(endpoint)!.push(addr)
+                    addrToGameAccountIndex.set(addr, index)
                 }
             }
-        });
+        })
 
-        const results = new Array<CheckpointOffChain | undefined>(gameAccounts.length);
+        const results = new Array<CheckpointOffChain | undefined>(gameAccounts.length)
         const t = new Date()
 
         // Request checkpoints for each unique endpoint
-        await Promise.all(Array.from(endpointToAddrs.entries()).map(async ([endpoint, addrs]) => {
-            try {
-                const checkpoints = await getLatestCheckpoints(endpoint, addrs);
+        await Promise.all(
+            Array.from(endpointToAddrs.entries()).map(async ([endpoint, addrs]) => {
+                try {
+                    const checkpoints = await getLatestCheckpoints(endpoint, addrs)
 
-                // Match the received checkpoints to the original gameAccounts order
-                checkpoints.forEach((checkpoint, idx) => {
-                    const addr = addrs[idx];
-                    const index = addrToGameAccountIndex.get(addr);
-                    if (index !== undefined) {
-                        results[index] = checkpoint;
-                    }
-                });
-            } catch (err) {
-                console.error(err, `Failed to fetch checkpoints from endpoint ${endpoint}`);
-            }
-        }));
+                    // Match the received checkpoints to the original gameAccounts order
+                    checkpoints.forEach((checkpoint, idx) => {
+                        const addr = addrs[idx]
+                        const index = addrToGameAccountIndex.get(addr)
+                        if (index !== undefined) {
+                            results[index] = checkpoint
+                        }
+                    })
+                } catch (err) {
+                    console.error(err, `Failed to fetch checkpoints from endpoint ${endpoint}`)
+                }
+            })
+        )
 
-        console.log(`Fetching checkpoints cost ${(new Date().getTime() - t.getTime())} ms`)
+        console.log(`Fetching checkpoints cost ${new Date().getTime() - t.getTime()} ms`)
 
-        return results;
+        return results
     }
 
     /**
@@ -315,16 +317,20 @@ export class AppHelper<W> {
      * @return A list of games
      */
     async listGames(registrationAddrs: string[]): Promise<GameAccount[]> {
-        return (await Promise.all(registrationAddrs.map(async regAddr => {
-            const reg = await this.__transport.getRegistration(regAddr)
-            const gameAddrs = reg?.games.map(g => g.addr)
-            if (gameAddrs) {
-                return await this.__transport.listGameAccounts(gameAddrs)
-            } else {
-                console.warn(`No game found in registration: ${regAddr}`)
-                return []
-            }
-        }))).flat()
+        return (
+            await Promise.all(
+                registrationAddrs.map(async regAddr => {
+                    const reg = await this.__transport.getRegistration(regAddr)
+                    const gameAddrs = reg?.games.map(g => g.addr)
+                    if (gameAddrs) {
+                        return await this.__transport.listGameAccounts(gameAddrs)
+                    } else {
+                        console.warn(`No game found in registration: ${regAddr}`)
+                        return []
+                    }
+                })
+            )
+        ).flat()
     }
 
     /**
@@ -417,7 +423,6 @@ export class AppHelper<W> {
         return await this.__transport.getRecipient(recipientAddr)
     }
 
-
     /**
      * Initiates a join request for a game session. It exports a public key and
      * sends a join request with required parameters like game address, amount,
@@ -444,7 +449,6 @@ export class AppHelper<W> {
             response
         )
 
-
         return response.stream()
     }
 
@@ -459,7 +463,7 @@ export class AppHelper<W> {
                     amount: params.amount,
                     settleVersion: gameAccount?.settleVersion || 0n, // SHOULD NEVER BE ZERO
                 },
-                response,
+                response
             )
         })
 
@@ -500,7 +504,7 @@ export class AppHelper<W> {
                     }
                 }
                 const totalAmount = totalClaimed + slot.balance
-                const amountToClaim = (totalAmount * BigInt(weights) / BigInt(totalWeights)) - claimed
+                const amountToClaim = (totalAmount * BigInt(weights)) / BigInt(totalWeights) - claimed
                 if (amountToClaim > 0n) {
                     ret.push({
                         amount: amountToClaim,

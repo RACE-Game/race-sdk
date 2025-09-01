@@ -70,7 +70,6 @@ export class ProfileLoader implements IProfileLoader {
             }
         }
 
-
         // 3, load rest profiles
         const profiles = await this.__transport.listPlayerProfiles(addrsToLoad)
         for (const profile of profiles) {

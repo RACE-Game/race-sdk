@@ -3,11 +3,11 @@ import { Address, Parser } from './parser'
 import { GameBundle } from '@race-foundation/sdk-core'
 
 const GameBundleSchema = bcs.struct('GameBundle', {
-    addr: Address,              // game nft object id
-    name: bcs.string(),         // game name
-    symbol: bcs.string(),       // symbol (USDC, RRR, etc)
-    uri: bcs.string(),          // bundle url
-    cover: bcs.string()         // cover image url
+    addr: Address, // game nft object id
+    name: bcs.string(), // game name
+    symbol: bcs.string(), // symbol (USDC, RRR, etc)
+    uri: bcs.string(), // bundle url
+    cover: bcs.string(), // cover image url
 })
 
 export const GameBundleParser: Parser<GameBundle, typeof GameBundleSchema> = {
@@ -19,5 +19,5 @@ export const GameBundleParser: Parser<GameBundle, typeof GameBundleSchema> = {
             name: input.name,
             data: new Uint8Array(),
         }
-    }
+    },
 }

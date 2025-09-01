@@ -116,7 +116,6 @@ export class CheckpointOffChain {
 }
 
 export class CheckpointOffChainList {
-
     @field(array(option(struct(CheckpointOffChain))))
     checkpoints!: (CheckpointOffChain | undefined)[]
 

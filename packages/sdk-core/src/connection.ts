@@ -7,7 +7,7 @@ import { CheckpointOffChain, CheckpointOffChainList } from './checkpoint'
 
 let __WebSocket_impl: (new (url: string | URL) => WebSocket) | undefined = undefined
 
-export function __set_WebSocket_impl(ws: (new (url: string | URL) => WebSocket)) {
+export function __set_WebSocket_impl(ws: new (url: string | URL) => WebSocket) {
     __WebSocket_impl = ws
 }
 
@@ -210,7 +210,6 @@ export class Connection implements IConnection {
         }
     }
 
-
     async attachGame(params: AttachGameParams): Promise<AttachResponse> {
         const req = makeReqNoSig(this.target, 'attach_game', params)
         const resp: any = await this.requestXhr(req)
@@ -285,7 +284,7 @@ export class Connection implements IConnection {
     parseEventMessage(raw: string): BroadcastFrame | ConnectionState | undefined {
         try {
             let resp = JSON.parse(raw)
-             if (resp.method === 's_event') {
+            if (resp.method === 's_event') {
                 if (resp.params.error === undefined) {
                     let result: string = resp.params.result
                     let data = base64ToUint8Array(result)
@@ -398,7 +397,7 @@ function makeReqAddrs(method: Method, addrs: string[]): string {
 
 export async function getLatestCheckpoints(
     transactorEndpoint: string,
-    addrs: string[],
+    addrs: string[]
 ): Promise<(CheckpointOffChain | undefined)[]> {
     const req = makeReqAddrs('get_latest_checkpoints', addrs)
     try {

@@ -44,8 +44,8 @@ export class PublicKeyRaws {
 
 export type EncryptorExportedKeys = {
     playerAddr: string
-    ec: [string, string],
-    rsa: [string, string],
+    ec: [string, string]
+    rsa: [string, string]
 }
 
 const RSA_PARAMS = {

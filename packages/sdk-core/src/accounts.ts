@@ -196,13 +196,13 @@ export interface RegistrationWithGames {
 }
 
 function getEndpointFromGameAccount(gameAccount: GameAccount): string | undefined {
-    const { transactorAddr, servers } = gameAccount;
+    const { transactorAddr, servers } = gameAccount
 
     if (!transactorAddr) {
-        return undefined;
+        return undefined
     }
 
-    const server = servers.find(s => s.addr === transactorAddr);
+    const server = servers.find(s => s.addr === transactorAddr)
 
-    return server ? server.endpoint : undefined;
+    return server ? server.endpoint : undefined
 }

@@ -169,7 +169,11 @@ export class SuiTransport implements ITransport<WalletAdapter> {
             return resp.transactionFailed(result.err)
         }
 
-        const objectChange = await resolveObjectCreatedByType(this.suiClient, result.ok, getGameStructType(this.packageId))
+        const objectChange = await resolveObjectCreatedByType(
+            this.suiClient,
+            result.ok,
+            getGameStructType(this.packageId)
+        )
         if (objectChange === undefined) return
 
         console.log('Transaction Result:', objectChange)
@@ -184,7 +188,6 @@ export class SuiTransport implements ITransport<WalletAdapter> {
         params: CreatePlayerProfileParams,
         resp: ResponseHandle<CreatePlayerProfileResponse, CreatePlayerProfileError>
     ): Promise<void> {
-
         const suiClient = this.suiClient
 
         const exist = await this.getPlayerProfile(this.walletAddr(wallet))
@@ -194,7 +197,11 @@ export class SuiTransport implements ITransport<WalletAdapter> {
         let objectChange
 
         if (exist) {
-            const profileObjectRef = await getOwnedObjectRef(this.suiClient, exist.addr, getProfileStructType(this.packageId))
+            const profileObjectRef = await getOwnedObjectRef(
+                this.suiClient,
+                exist.addr,
+                getProfileStructType(this.packageId)
+            )
 
             if (profileObjectRef === undefined) {
                 return resp.retryRequired('Cannot find player profile object ref')
@@ -213,7 +220,11 @@ export class SuiTransport implements ITransport<WalletAdapter> {
                 return resp.transactionFailed(result.err)
             }
 
-            objectChange = await resolveObjectMutatedByType(this.suiClient, result.ok, getProfileStructType(this.packageId))
+            objectChange = await resolveObjectMutatedByType(
+                this.suiClient,
+                result.ok,
+                getProfileStructType(this.packageId)
+            )
         } else {
             transaction.moveCall({
                 target: `${this.packageId}::profile::create_profile`,
@@ -224,7 +235,11 @@ export class SuiTransport implements ITransport<WalletAdapter> {
                 return resp.transactionFailed(result.err)
             }
 
-            objectChange = await resolveObjectCreatedByType(this.suiClient, result.ok, getProfileStructType(this.packageId))
+            objectChange = await resolveObjectCreatedByType(
+                this.suiClient,
+                result.ok,
+                getProfileStructType(this.packageId)
+            )
         }
 
         if (objectChange) {
@@ -263,7 +278,11 @@ export class SuiTransport implements ITransport<WalletAdapter> {
         throw new Error('Method not implemented.')
     }
 
-    async join(wallet: WalletAdapter, params: JoinParams, resp: ResponseHandle<JoinResponse, JoinError>): Promise<void> {
+    async join(
+        wallet: WalletAdapter,
+        params: JoinParams,
+        resp: ResponseHandle<JoinResponse, JoinError>
+    ): Promise<void> {
         const { gameAddr, amount, position, verifyKey, createProfileIfNeeded = false } = params
 
         const suiClient = this.suiClient
@@ -447,37 +466,37 @@ export class SuiTransport implements ITransport<WalletAdapter> {
         params: AddRecipientSlotParams,
         resp: ResponseHandle<AddRecipientSlotResponse, AddRecipientSlotError>
     ): Promise<void> {
-        const { recipientAddr, slot } = params;
-        const suiClient = this.suiClient;
-        const transaction = new Transaction();
+        const { recipientAddr, slot } = params
+        const suiClient = this.suiClient
+        const transaction = new Transaction()
 
         try {
-            const recipientObject = await this.getRecipient(recipientAddr);
+            const recipientObject = await this.getRecipient(recipientAddr)
             if (!recipientObject) {
-                return resp.failed('recipient-not-found');
+                return resp.failed('recipient-not-found')
             }
 
             if (recipientObject.slots.some(s => s.id === slot.id)) {
-                return resp.failed('slot-id-exists');
+                return resp.failed('slot-id-exists')
             }
 
-            const recipientObjRef = await getSharedObjectRef(this.suiClient, recipientAddr, true);
+            const recipientObjRef = await getSharedObjectRef(this.suiClient, recipientAddr, true)
             if (!recipientObjRef) {
-                return resp.retryRequired('Could not get recipient object reference');
+                return resp.retryRequired('Could not get recipient object reference')
             }
 
             // Step 1: Create each RecipientSlotShare object via a moveCall
-            const shareArgs: TransactionObjectArgument[] = [];
+            const shareArgs: TransactionObjectArgument[] = []
             for (const share of slot.initShares) {
-                let ownerType: number;
-                let ownerInfo: string;
+                let ownerType: number
+                let ownerInfo: string
 
                 if ('addr' in share.owner) {
-                    ownerType = 1;
-                    ownerInfo = share.owner.addr;
+                    ownerType = 1
+                    ownerInfo = share.owner.addr
                 } else {
-                    ownerType = 0;
-                    ownerInfo = share.owner.identifier;
+                    ownerType = 0
+                    ownerInfo = share.owner.identifier
                 }
 
                 const shareObject = transaction.moveCall({
@@ -487,17 +506,17 @@ export class SuiTransport implements ITransport<WalletAdapter> {
                         transaction.pure.string(ownerInfo),
                         transaction.pure.u16(share.weights),
                     ],
-                });
-                shareArgs.push(shareObject);
+                })
+                shareArgs.push(shareObject)
             }
 
             // Step 2: Create a vector from the share objects
             const sharesVector = transaction.makeMoveVec({
                 type: `${this.packageId}::recipient::RecipientSlotShare`,
                 elements: shareArgs,
-            });
+            })
 
-            const slotTypeArg = slot.slotType === 'token' ? 1 : 0; // 0 for Nft, 1 for Token
+            const slotTypeArg = slot.slotType === 'token' ? 1 : 0 // 0 for Nft, 1 for Token
 
             // Step 3: Call the main `add_slot` function with the created vector
             transaction.moveCall({
@@ -510,25 +529,24 @@ export class SuiTransport implements ITransport<WalletAdapter> {
                     sharesVector,
                 ],
                 typeArguments: [slot.tokenAddr],
-            });
+            })
 
             // Send the transaction
-            const result = await send(wallet, transaction, suiClient, resp);
+            const result = await send(wallet, transaction, suiClient, resp)
             if ('err' in result) {
-                return resp.transactionFailed(result.err);
+                return resp.transactionFailed(result.err)
             }
 
-            const signature = result.ok.digest;
-            console.log(`Add slot transaction successful with digest: ${signature}`);
+            const signature = result.ok.digest
+            console.log(`Add slot transaction successful with digest: ${signature}`)
 
             return resp.succeed({
                 recipientAddr,
                 signature,
-            });
-
+            })
         } catch (error: any) {
-            console.error("Error in addRecipientSlot:", error);
-            resp.transactionFailed(error.message || 'An unknown error occurred');
+            console.error('Error in addRecipientSlot:', error)
+            resp.transactionFailed(error.message || 'An unknown error occurred')
         }
     }
 
@@ -806,11 +824,17 @@ export class SuiTransport implements ITransport<WalletAdapter> {
     }
 }
 
-async function send<T, E>(wallet: WalletAdapter, transaction: Transaction, _: SuiClient, resp: ResponseHandle<T, E>): Promise<Result<SuiSignAndExecuteTransactionOutput, string>> {
+async function send<T, E>(
+    wallet: WalletAdapter,
+    transaction: Transaction,
+    _: SuiClient,
+    resp: ResponseHandle<T, E>
+): Promise<Result<SuiSignAndExecuteTransactionOutput, string>> {
     resp.waitingWallet()
 
     const result = await wallet.features['sui:signAndExecuteTransaction'].signAndExecuteTransaction({
-        transaction, account: wallet.accounts[0]
+        transaction,
+        account: wallet.accounts[0],
     })
     return { ok: result }
 }
