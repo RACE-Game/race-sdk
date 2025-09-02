@@ -3,12 +3,12 @@ import * as SPL from '@solana-program/token'
 import { PROGRAM_ID, METAPLEX_PROGRAM_ID, SYSVAR_RENT, NATIVE_MINT, SYSTEM_PROGRAM_ADDRESS, TOKEN_PROGRAM_ADDRESS } from './constants'
 import { array, enums, field, serialize, struct } from '@race-foundation/borsh'
 import { EntryType, Fields, RecipientClaimError, AttachBonusError, Result } from '@race-foundation/sdk-core'
-import { AEntryType, GameState, RecipientSlotOwner, RecipientSlotOwnerAssigned, RecipientState } from './accounts'
+import { AEntryType, GameState, RecipientSlotOwner, RecipientSlotOwnerAssigned, RecipientState, RecipientSlot } from './accounts'
 import {
     AccountRole,
     address,
     Address,
-    IInstruction,
+    Instruction as IInstruction,
     getProgramDerivedAddress,
     getBase58Encoder,
     isAddress,
@@ -678,7 +678,7 @@ export function attachBonus(opts: AttachBonusOpts): Result<IInstruction, AttachB
 export type ClaimOpts = {
     payerKey: Address
     recipientKey: Address
-    recipientState: RecipientState
+    slots: RecipientSlot[] // the slots to claim from
 }
 
 export async function claim(opts: ClaimOpts): Promise<Result<IInstruction, RecipientClaimError>> {
@@ -703,7 +703,7 @@ export async function claim(opts: ClaimOpts): Promise<Result<IInstruction, Recip
         },
     ]
 
-    for (const slot of opts.recipientState.slots) {
+    for (const slot of opts.slots) {
         const [pda, _] = await getProgramDerivedAddress({
             programAddress: PROGRAM_ID,
             seeds: [getBase58Encoder().encode(opts.recipientKey), Uint8Array.of(slot.id)],

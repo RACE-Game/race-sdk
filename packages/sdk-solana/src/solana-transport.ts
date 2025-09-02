@@ -13,14 +13,13 @@ import {
     pipe,
     partiallySignTransaction,
     appendTransactionMessageInstructions,
-    IInstruction,
+    Instruction as IInstruction,
     generateKeyPairSigner,
     getProgramDerivedAddress,
     KeyPairSigner,
     TransactionSigner,
     compileTransaction,
     TransactionMessageWithBlockhashLifetime,
-    ITransactionMessageWithFeePayer,
     createAddressWithSeed,
     Blockhash,
     Transaction,
@@ -34,8 +33,10 @@ import {
     MaybeAccount,
     RpcTransportFromClusterUrl,
     RpcTransport,
+    TransactionMessageWithFeePayer,
 } from '@solana/kit'
 import * as SPL from '@solana-program/token'
+import * as ALT from '@solana-program/address-lookup-table'
 import {
     ITransport,
     CreateGameAccountParams,
@@ -103,6 +104,7 @@ import {
     GameState,
     PlayerState,
     PlayersRegState,
+    RecipientSlotOwner,
     RecipientSlotOwnerAssigned,
     RecipientSlotOwnerUnassigned,
     RecipientState,
@@ -123,7 +125,7 @@ const MAX_CONFIRM_TIMES = 32
 const MAX_RETRIES_FOR_GET_PLAYERS_REG = 5
 
 type TransactionMessageWithFeePayerAndBlockhashLifetime = TransactionMessage &
-    ITransactionMessageWithFeePayer &
+    TransactionMessageWithFeePayer &
     TransactionMessageWithBlockhashLifetime
 
 function base64ToUint8Array(base64: string): Uint8Array {
@@ -342,7 +344,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
                 owner: payer.address,
                 tokenProgram: SPL.TOKEN_PROGRAM_ADDRESS,
                 mint: gameState.tokenKey,
-            })
+        })
         }
 
         const unregisterGameIx = instruction.unregisterGame({
@@ -730,11 +732,48 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             return response.failed('not-found')
         }
 
+        let slotsClaimFrom = [];
+
+        for (let slot of recipientState.slots) {
+            const currShare = slot.shares.find(share =>
+                share.owner instanceof RecipientSlotOwnerAssigned && share.owner.addr === payer.address
+            )
+
+            if (currShare === undefined) {
+                continue
+            }
+
+            const totalWeights = slot.shares.map(share => share.weights).reduce((acc, next) => acc + next, 0)
+
+            let totalUnclaimed: bigint
+            if (slot.tokenAddr === NATIVE_MINT) {
+                totalUnclaimed = (await this.rpc().getBalance(slot.stakeAddr).send()).value
+            } else {
+                totalUnclaimed = BigInt((await this.rpc().getTokenAccountBalance(slot.stakeAddr).send()).value.amount)
+            }
+
+            const totalClaimed = slot.shares.map(share => share.claimAmount).reduce((acc, next) => acc + next, 0n)
+            const total = totalUnclaimed + totalClaimed
+            const ownedAmount = total * BigInt(currShare.weights) / BigInt(totalWeights)
+            const remainAmount = ownedAmount - currShare.claimAmount
+
+            console.log(`Slot ${slot.tokenAddr}, weights: ${currShare.weights}/${totalWeights}, owned amount: ${ownedAmount}, unclaimed: ${remainAmount}`)
+
+            if (remainAmount !== 0n) {
+                slotsClaimFrom.push(slot)
+
+                if (slotsClaimFrom.length === 6) {
+                    break;
+                }
+            }
+        }
+
         const recipientClaimIx = await instruction.claim({
             recipientKey,
             payerKey: payer.address,
-            recipientState,
+            slots: slotsClaimFrom,
         })
+
         if ('err' in recipientClaimIx) {
             return response.failed(recipientClaimIx.err)
         }
