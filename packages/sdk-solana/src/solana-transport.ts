@@ -168,7 +168,6 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     }
 
     roundRobinTransport(): RpcTransport {
-        console.log(`use transport: ${this.#nextTransport}`)
         const transport = this.#rpcTransports[this.#nextTransport]
         this.#nextTransport = (this.#nextTransport + 1) % this.#rpcTransports.length
         return transport
@@ -1230,7 +1229,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
 
         const profileKey = await this._getPlayerProfileAddress(playerKey)
 
-        const profileAccountData = await this._getFinializedBase64AccountData(profileKey)
+        const profileAccountData = await this._getFinalizedBase64AccountData(profileKey)
 
         if (profileAccountData !== undefined) {
             const state = PlayerState.deserialize(profileAccountData)
@@ -1572,7 +1571,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
 
     // This function returns the account data in Uint8Array which is parsed from base64 string
     // format.
-    async _getFinializedBase64AccountData(addr: Address): Promise<Readonly<Uint8Array> | undefined> {
+    async _getFinalizedBase64AccountData(addr: Address): Promise<Readonly<Uint8Array> | undefined> {
         const value = (await this.rpc().getAccountInfo(addr, { commitment: 'finalized', encoding: 'base64' }).send())
             .value
         if (value == null) {
