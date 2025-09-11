@@ -823,7 +823,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         const profileKey = await this._getPlayerProfileAddress(payer.address)
 
         console.info('Player profile public key: ', profileKey)
-        const profileAccountData = await this._getFinializedBase64AccountData(profileKey)
+        const profileAccountData = await this._getFinalizedBase64AccountData(profileKey)
 
         if (!profileAccountData) {
             const lamports = await this.rpc().getMinimumBalanceForRentExemption(PROFILE_ACCOUNT_LEN).send()
@@ -1205,7 +1205,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             seeds: ['metadata', getBase58Encoder().encode(METAPLEX_PROGRAM_ID), getBase58Encoder().encode(mintKey)],
         })
 
-        const metadataAccountData = await this._getFinializedBase64AccountData(metadataKey)
+        const metadataAccountData = await this._getFinalizedBase64AccountData(metadataKey)
         if (metadataAccountData === undefined) {
             return undefined
         }
@@ -1582,7 +1582,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     }
 
     async _getGameState(gameAccountKey: Address): Promise<GameState | undefined> {
-        const data = await this._getFinializedBase64AccountData(gameAccountKey)
+        const data = await this._getFinalizedBase64AccountData(gameAccountKey)
         if (data !== undefined) {
             return GameState.deserialize(data)
         } else {
@@ -1597,7 +1597,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     ): Promise<PlayersRegState | undefined> {
         let retries = 0
         while (retries < MAX_RETRIES_FOR_GET_PLAYERS_REG) {
-            const data = await this._getFinializedBase64AccountData(playersRegAccountKey)
+            const data = await this._getFinalizedBase64AccountData(playersRegAccountKey)
             if (data !== undefined) {
                 let state = PlayersRegState.deserialize(data)
                 if (state.accessVersion == accessVersion && state.settleVersion == settleVersion) {
@@ -1615,7 +1615,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     }
 
     async _getRecipientState(recipientKey: Address): Promise<RecipientState | undefined> {
-        const data = await this._getFinializedBase64AccountData(recipientKey)
+        const data = await this._getFinalizedBase64AccountData(recipientKey)
         if (data !== undefined) {
             return RecipientState.deserialize(data)
         } else {
@@ -1624,7 +1624,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     }
 
     async _getRegState(regKey: Address): Promise<RegistryState | undefined> {
-        const data = await this._getFinializedBase64AccountData(regKey)
+        const data = await this._getFinalizedBase64AccountData(regKey)
         if (data !== undefined) {
             return RegistryState.deserialize(data)
         } else {
@@ -1633,7 +1633,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     }
 
     async _getServerState(serverKey: Address): Promise<ServerState | undefined> {
-        const data = await this._getFinializedBase64AccountData(serverKey)
+        const data = await this._getFinalizedBase64AccountData(serverKey)
         if (data !== undefined) {
             return ServerState.deserialize(data)
         } else {
