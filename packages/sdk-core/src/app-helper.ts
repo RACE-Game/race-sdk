@@ -136,7 +136,7 @@ export class AppHelper<W> {
             }
         } else if (params.entryType.kind === 'ticket') {
             const entryType = params.entryType
-            if (entryType.amount <= 0) {
+            if (entryType.amount < 0) {
                 throw new Error('Invalid ticket price')
             }
         } else {
