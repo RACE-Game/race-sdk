@@ -37,6 +37,7 @@ import {
 } from '@solana/kit'
 import * as SPL from '@solana-program/token'
 import * as ALT from '@solana-program/address-lookup-table'
+import * as CB from '@solana-program/compute-budget'
 import {
     ITransport,
     CreateGameAccountParams,
@@ -328,7 +329,10 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         if (regState.games.find(g => g.gameKey == gameAccountKey) === undefined) {
             return response.failed('game-not-in-reg')
         }
-        const ixs = []
+
+        const computeBudgetIx = CB.getSetComputeUnitLimitInstruction({ units: 200_000 });
+
+        const ixs: IInstruction[] = [computeBudgetIx]
         const [pda, _] = await getProgramDerivedAddress({
             programAddress: PROGRAM_ID,
             seeds: [getBase58Encoder().encode(gameAccountKey)],
