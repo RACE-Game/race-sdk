@@ -34,6 +34,8 @@ import {
     RpcTransportFromClusterUrl,
     RpcTransport,
     TransactionMessageWithFeePayer,
+    TransactionMessageWithLifetime,
+    TransactionWithLifetime,
 } from '@solana/kit'
 import * as SPL from '@solana-program/token'
 import * as ALT from '@solana-program/address-lookup-table'
@@ -47,6 +49,8 @@ import {
     VoteParams,
     CreatePlayerProfileParams,
     CreateRegistrationParams,
+    CreateRegistrationResponse,
+    CreateRegistrationError,
     RegisterGameParams,
     UnregisterGameParams,
     GameAccount,
@@ -93,6 +97,7 @@ import {
     PROFILE_ACCOUNT_LEN,
     PLAYER_PROFILE_SEED,
     RECIPIENT_ACCOUNT_LEN,
+    REGISTRATION_ACCOUNT_LEN,
     NATIVE_MINT,
     SERVER_PROFILE_SEED,
     PLAYERS_REG_INIT_LEN,
@@ -1078,6 +1083,48 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         })
     }
 
+    async _prepareCreateRegistration(
+        payer: TransactionSendingSigner,
+        params: CreateRegistrationParams,
+    ): Promise<Result<{
+        registrationAccount: KeyPairSigner
+        ixs: IInstruction[]
+        signers: KeyPairSigner[]
+    }, CreateRegistrationError>> {
+        let ixs: IInstruction[] = []
+        let signers: KeyPairSigner[] = []
+
+        const { ixs: createRegistrationAccountIxs, account: registrationAccount } = await this._prepareCreateAccount(
+            payer,
+            REGISTRATION_ACCOUNT_LEN,
+            PROGRAM_ID
+        )
+
+        ixs.push(...createRegistrationAccountIxs)
+        signers.push(registrationAccount)
+
+        const createRegistrationIxResult = await instruction.createRegistration({
+            payerKey: payer.address,
+            registrationKey: registrationAccount.address,
+            size: params.size,
+            isPrivate: params.isPrivate,
+        })
+
+        if ('err' in createRegistrationIxResult) {
+            return { err: createRegistrationIxResult.err }
+        }
+
+        ixs.push(createRegistrationIxResult.ok)
+
+        return {
+            ok: {
+                registrationAccount,
+                ixs,
+                signers
+            }
+        }
+    }
+
     async _prepareCreateRecipient(
         payer: TransactionSendingSigner,
         params: CreateRecipientParams
@@ -1174,8 +1221,34 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             },
         }
     }
-    async createRegistration(_payer: SolanaWalletAdapterWallet, _params: CreateRegistrationParams): Promise<void> {
-        throw new Error('unimplemented')
+    async createRegistration(
+        wallet: SolanaWalletAdapterWallet,
+        params: CreateRegistrationParams,
+        response: ResponseHandle<CreateRegistrationResponse, CreateRegistrationError>
+    ): Promise<void> {
+        const payer = this.useTransactionSendingSigner(wallet)
+        const createRegistrationResult = await this._prepareCreateRegistration(payer, params)
+        if ('err' in createRegistrationResult) {
+            return response.failed(createRegistrationResult.err)
+        }
+
+        const { ixs, registrationAccount, signers } = createRegistrationResult.ok
+
+        const tx = await makeTransaction(this.rpc(), payer, ixs)
+        if ('err' in tx) {
+            return response.retryRequired(tx.err)
+        }
+
+        const signatureResult = await sendTransaction(payer, tx.ok, response, { signers })
+        if ('err' in signatureResult) {
+            return response.transactionFailed(signatureResult.err)
+        }
+
+        const signature = signatureResult.ok
+        await confirmSignature(this.rpc(), signature, response, {
+            registrationAddr: registrationAccount.address,
+            signature,
+        })
     }
     async registerGame(_payer: SolanaWalletAdapterWallet, _params: RegisterGameParams): Promise<void> {
         throw new Error('unimplemented')
@@ -1688,7 +1761,7 @@ async function sendTransaction<T, E>(
 ): Promise<SendTransactionResult<Signature>> {
     response.waitingWallet()
 
-    let transaction: Transaction = compileTransaction(tx)
+    let transaction = compileTransaction(tx)
 
     try {
         if (config?.signers !== undefined) {

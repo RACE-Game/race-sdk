@@ -2,7 +2,7 @@ import { publicKeyExt } from './utils'
 import * as SPL from '@solana-program/token'
 import { PROGRAM_ID, METAPLEX_PROGRAM_ID, SYSVAR_RENT, NATIVE_MINT, SYSTEM_PROGRAM_ADDRESS, TOKEN_PROGRAM_ADDRESS } from './constants'
 import { array, enums, field, serialize, struct } from '@race-foundation/borsh'
-import { EntryType, Fields, RecipientClaimError, AttachBonusError, Result } from '@race-foundation/sdk-core'
+import { EntryType, Fields, RecipientClaimError, AttachBonusError, Result, CreateRegistrationError } from '@race-foundation/sdk-core'
 import { AEntryType, GameState, RecipientSlotOwner, RecipientSlotOwnerAssigned, RecipientState, RecipientSlot } from './accounts'
 import {
     AccountRole,
@@ -186,6 +186,20 @@ export class CreateRecipientData extends Serialize {
     constructor(params: IxParams<CreateRecipientData>) {
         super()
         this.slots = params.slots
+    }
+}
+
+export class CreateRegistrationData extends Serialize {
+    @field('bool')
+    isPrivate: boolean
+
+    @field('u16')
+    size: number
+
+    constructor(params: IxParams<CreateRegistrationData>) {
+        super()
+        this.size = params.size
+        this.isPrivate = params.isPrivate
     }
 }
 
@@ -672,6 +686,44 @@ export function attachBonus(opts: AttachBonusOpts): Result<IInstruction, AttachB
             programAddress: PROGRAM_ID,
             data,
         },
+    }
+}
+
+export type CreateRegistrationOpts = {
+    payerKey: Address
+    registrationKey: Address
+    isPrivate: boolean
+    size: number
+}
+
+export async function createRegistration(opts: CreateRegistrationOpts): Promise<Result<IInstruction, CreateRegistrationError>> {
+
+    if (opts.size > 72) {
+        return { err: 'invalid-size' }
+    }
+
+    let accounts = [
+        {
+            address: opts.payerKey,
+            role: AccountRole.READONLY_SIGNER,
+        },
+        {
+            address: opts.registrationKey,
+            role: AccountRole.WRITABLE,
+        }
+    ]
+
+    let data = new CreateRegistrationData({
+        size: opts.size,
+        isPrivate: opts.isPrivate,
+    }).serialize()
+
+    return {
+        ok: {
+            accounts,
+            programAddress: PROGRAM_ID,
+            data,
+        }
     }
 }
 

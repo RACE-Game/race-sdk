@@ -27,6 +27,9 @@ import {
     AddRecipientSlotParams,
     AddRecipientSlotResponse,
     AddRecipientSlotError,
+    CreateRegistrationParams,
+    CreateRegistrationResponse,
+    CreateRegistrationError,
 } from './transport'
 import { PlayerProfileWithPfp } from './types'
 import { getLatestCheckpoints } from './connection'
@@ -85,6 +88,18 @@ export class AppHelper<W> {
     ): ResponseStream<CreateRecipientResponse, CreateRecipientError> {
         const response = new ResponseHandle<CreateRecipientResponse, CreateRecipientError>()
         this.__transport.createRecipient(wallet, params, response)
+        return response.stream()
+    }
+
+    /**
+     * Create a new registry account.
+     */
+    createRegistration(
+        wallet: W,
+        params: CreateRegistrationParams
+    ): ResponseStream<CreateRegistrationResponse, CreateRegistrationError> {
+        const response = new ResponseHandle<CreateRegistrationResponse, CreateRegistrationError>()
+        this.__transport.createRegistration(wallet, params, response)
         return response.stream()
     }
 

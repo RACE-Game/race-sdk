@@ -44,6 +44,9 @@ import {
     AddRecipientSlotParams,
     AddRecipientSlotResponse,
     AddRecipientSlotError,
+    CreateRegistrationParams,
+    CreateRegistrationError,
+    CreateRegistrationResponse,
 } from '@race-foundation/sdk-core'
 import { CoinStruct, ObjectOwner, SuiClient, SuiObjectResponse } from '@mysten/sui/client'
 import { Transaction, TransactionObjectArgument } from '@mysten/sui/transactions'
@@ -383,6 +386,10 @@ export class SuiTransport implements ITransport<WalletAdapter> {
         const suiClient = this.suiClient
 
         throw new Error('Method not implemented.')
+    }
+
+    async createRegistration(wallet: WalletAdapter, params: CreateRegistrationParams, resp: ResponseHandle<CreateRegistrationResponse, CreateRegistrationError>): Promise<void> {
+        throw new Error('unimplemented')
     }
 
     async createRecipient(

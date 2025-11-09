@@ -125,6 +125,13 @@ export type CreateRegistrationParams = {
     size: number
 }
 
+export type CreateRegistrationResponse = {
+    registrationAddr: string
+    signature: string
+}
+
+export type CreateRegistrationError = 'invalid-size'
+
 export type CreateRecipientParams = {
     capAddr?: string
     slots: RecipientSlotInit[]
@@ -240,6 +247,12 @@ export interface ITransport<W = never> {
         wallet: W,
         params: CreateRecipientParams,
         resp: ResponseHandle<CreateRecipientResponse, CreateRecipientError>
+    ): Promise<void>
+
+    createRegistration(
+        wallet: W,
+        params: CreateRegistrationParams,
+        resp: ResponseHandle<CreateRegistrationResponse, CreateRegistrationError>,
     ): Promise<void>
 
     addRecipientSlot(

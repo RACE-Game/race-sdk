@@ -11,6 +11,7 @@ export const PROGRAM_ID: Address = address('C3u1cTJGKP5XzPCvLgQydGWE7aR3x3o5KL8Y
 export const METAPLEX_PROGRAM_ID: Address = address('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
 export const PROFILE_ACCOUNT_LEN = 130n
 export const RECIPIENT_ACCOUNT_LEN = 2000n
+export const REGISTRATION_ACCOUNT_LEN = 2000n
 export const GAME_ACCOUNT_LEN = 1400n
 export const PLAYERS_REG_HEAD_LEN = 152n
 export const PLAYERS_REG_INIT_LEN = PLAYERS_REG_HEAD_LEN + 4n
