@@ -34,7 +34,6 @@ import {
     RpcTransportFromClusterUrl,
     RpcTransport,
     TransactionMessageWithFeePayer,
-    TransactionMessageWithLifetime,
     TransactionWithLifetime,
 } from '@solana/kit'
 import * as SPL from '@solana-program/token'
