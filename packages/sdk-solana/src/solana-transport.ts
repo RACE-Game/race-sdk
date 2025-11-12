@@ -13,7 +13,7 @@ import {
     pipe,
     partiallySignTransaction,
     appendTransactionMessageInstructions,
-    Instruction as IInstruction,
+    IInstruction,
     generateKeyPairSigner,
     getProgramDerivedAddress,
     KeyPairSigner,
@@ -33,7 +33,7 @@ import {
     MaybeAccount,
     RpcTransportFromClusterUrl,
     RpcTransport,
-    TransactionMessageWithFeePayer,
+    ITransactionMessageWithFeePayer,
     TransactionWithLifetime,
 } from '@solana/kit'
 import * as SPL from '@solana-program/token'
@@ -130,7 +130,7 @@ const MAX_CONFIRM_TIMES = 32
 const MAX_RETRIES_FOR_GET_PLAYERS_REG = 5
 
 type TransactionMessageWithFeePayerAndBlockhashLifetime = TransactionMessage &
-    TransactionMessageWithFeePayer &
+    ITransactionMessageWithFeePayer &
     TransactionMessageWithBlockhashLifetime
 
 function base64ToUint8Array(base64: string): Uint8Array {

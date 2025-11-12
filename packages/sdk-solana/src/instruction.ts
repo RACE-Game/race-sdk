@@ -8,7 +8,7 @@ import {
     AccountRole,
     address,
     Address,
-    Instruction as IInstruction,
+    IInstruction,
     getProgramDerivedAddress,
     getBase58Encoder,
     isAddress,
