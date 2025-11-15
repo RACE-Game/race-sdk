@@ -9,7 +9,7 @@ import {
     RpcTransport,
 } from '@solana/kit'
 
-type Asset = Readonly<{
+export type Asset = Readonly<{
     interface: any
     id: Address
     token_info: {
@@ -41,6 +41,8 @@ type Asset = Readonly<{
 // Define the method's response payload.
 type GetAssetResponse = Asset
 
+type GetAssetsResponse = Asset[]
+
 type GetAssetsByOwnerResponse = Readonly<{
     cursor: Address
     length: number
@@ -55,6 +57,8 @@ type SortCriteria = {
 // Set up a type spec for the request method.
 export type MetaplexDASApi = {
     getAsset(id: Address): RpcResponseData<GetAssetResponse>
+
+    getAssets(input: {ids: Address[]}): RpcResponseData<GetAssetsResponse>
 
     getAssetsByOwner(input: {
         ownerAddress: Address

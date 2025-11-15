@@ -121,7 +121,7 @@ import { PROGRAM_ID, METAPLEX_PROGRAM_ID } from './constants'
 import { Metadata } from './metadata'
 import { getCreateAccountInstruction, getCreateAccountWithSeedInstruction } from '@solana-program/system'
 import { TOKEN_PROGRAM_ADDRESS } from '@solana-program/token'
-import { createDasRpc, MetaplexDASApi } from './metaplex'
+import { createDasRpc, MetaplexDASApi, Asset } from './metaplex'
 import type { SolanaWalletAdapterWallet } from '@solana/wallet-standard'
 import { IdentifierString } from '@wallet-standard/base'
 
@@ -1406,26 +1406,40 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         return mint.data.decimals
     }
 
+    _parseAssetRespToToken(asset: Asset): Token | undefined {
+        const { name, symbol } = asset.content.metadata
+        const icon = asset.content.files?.[0]?.uri
+        if (icon == undefined) {
+            console.warn('Skip token %s as its icon is not available', asset.id)
+            console.warn('Token metadata:', asset.content.metadata)
+            return undefined
+        }
+        const decimals = asset.token_info.decimals
+        const token = {
+            addr: asset.id,
+            name,
+            symbol,
+            icon,
+            decimals,
+        }
+        return token
+    }
+
+    async _getMultipleAssetsAsTokens(addrs: Address[]): Promise<Array<Token | undefined>> {
+        const assetsResp = await this.dasRpc().getAssets({ids: addrs}).send()
+
+        if ('result' in assetsResp) {
+            return assetsResp.result.map(this._parseAssetRespToToken)
+        } else {
+            console.warn(assetsResp.error, 'Error in getAssets response')
+            return []
+        }
+    }
+
     async _getAssetAsToken(addr: Address): Promise<Token | undefined> {
         const assetResp = await this.dasRpc().getAsset(addr).send()
         if ('result' in assetResp) {
-            const asset = assetResp.result
-            const { name, symbol } = asset.content.metadata
-            const icon = asset.content.files?.[0]?.uri
-            if (icon == undefined) {
-                console.warn('Skip token %s as its icon is not available', addr)
-                console.warn('Token metadata:', asset.content.metadata)
-                return undefined
-            }
-            const decimals = asset.token_info.decimals
-            const token = {
-                addr,
-                name,
-                symbol,
-                icon,
-                decimals,
-            }
-            return token
+            return this._parseAssetRespToToken(assetResp.result)
         } else {
             console.warn(assetResp.error, 'Error in getAsset response')
             return undefined
@@ -1450,7 +1464,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             throw new Error('Too many token addresses in a row')
         }
 
-        let tokens = await Promise.all(rawMintAddrs.map(a => this._getAssetAsToken(address(a))))
+        let tokens = await this._getMultipleAssetsAsTokens(rawMintAddrs.map(a => address(a)))
 
         return tokens.filter((t): t is Token => t !== undefined)
     }
