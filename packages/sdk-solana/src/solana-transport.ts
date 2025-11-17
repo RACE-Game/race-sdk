@@ -784,7 +784,10 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         if ('err' in recipientClaimIx) {
             return response.failed(recipientClaimIx.err)
         }
-        const tx = await makeTransaction(this.rpc(), payer, [recipientClaimIx.ok])
+
+        const computeBudgetIx = CB.getSetComputeUnitLimitInstruction({ units: 1000_000 });
+
+        const tx = await makeTransaction(this.rpc(), payer, [computeBudgetIx, recipientClaimIx.ok])
         if ('err' in tx) {
             return response.retryRequired(tx.err)
         }
