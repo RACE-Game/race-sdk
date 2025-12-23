@@ -2,8 +2,8 @@ import { publicKeyExt } from './utils'
 import * as SPL from '@solana-program/token'
 import { PROGRAM_ID, METAPLEX_PROGRAM_ID, SYSVAR_RENT, NATIVE_MINT, SYSTEM_PROGRAM_ADDRESS, TOKEN_PROGRAM_ADDRESS } from './constants'
 import { array, enums, field, serialize, struct } from '@race-foundation/borsh'
-import { EntryType, Fields, RecipientClaimError, AttachBonusError, Result, CreateRegistrationError } from '@race-foundation/sdk-core'
-import { AEntryType, GameState, RecipientSlotOwner, RecipientSlotOwnerAssigned, RecipientState, RecipientSlot } from './accounts'
+import { AEntryType, Fields, RecipientClaimError, AttachBonusError, Result, CreateRegistrationError, IEntryType } from '@race-foundation/sdk-core'
+import { GameState, RecipientSlotOwner, RecipientSlotOwnerAssigned, RecipientState, RecipientSlot } from './accounts'
 import {
     AccountRole,
     address,
@@ -53,9 +53,13 @@ export class CreatePlayerProfileData extends Serialize {
     @field('string')
     nick: string
 
-    constructor(nick: string) {
+    @field('u8-array')
+    credentials: Uint8Array
+
+    constructor(nick: string, credentials: Uint8Array) {
         super()
         this.nick = nick
+        this.credentials = credentials
     }
 }
 
@@ -97,8 +101,6 @@ export class JoinGameData extends Serialize {
     settleVersion: bigint
     @field('u16')
     position: number
-    @field('string')
-    verifyKey: string
 
     constructor(params: IxParams<JoinGameData>) {
         super()
@@ -106,7 +108,6 @@ export class JoinGameData extends Serialize {
         this.accessVersion = params.accessVersion
         this.settleVersion = params.settleVersion
         this.position = params.position
-        this.verifyKey = params.verifyKey
     }
 }
 
@@ -235,9 +236,10 @@ export function createPlayerProfile(
     ownerKey: Address,
     profileKey: Address,
     nick: string,
-    pfpKey?: Address
+    pfpKey: Address | undefined,
+    credentials: Uint8Array,
 ): IInstruction {
-    const data = new CreatePlayerProfileData(nick).serialize()
+    const data = new CreatePlayerProfileData(nick, credentials).serialize()
 
     return {
         accounts: [
@@ -273,7 +275,7 @@ export type CreateGameOptions = {
     gameBundleKey: Address
     title: string
     maxPlayers: number
-    entryType: EntryType
+    entryType: IEntryType
     data: Uint8Array
 }
 
@@ -375,7 +377,6 @@ export type JoinOptions = {
     accessVersion: bigint
     settleVersion: bigint
     position: number
-    verifyKey: string
     pda: Address
 }
 
@@ -393,7 +394,6 @@ export function join(opts: JoinOptions): IInstruction {
         accessVersion,
         settleVersion,
         position,
-        verifyKey,
         pda,
     } = opts
 
@@ -402,7 +402,6 @@ export function join(opts: JoinOptions): IInstruction {
         accessVersion,
         settleVersion,
         position,
-        verifyKey,
     }).serialize()
 
     return {

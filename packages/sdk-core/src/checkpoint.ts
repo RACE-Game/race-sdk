@@ -1,24 +1,14 @@
-import { array, deserialize, field, map, option, struct, enums } from '@race-foundation/borsh'
-import { sha256 } from './encryptor'
+import { array, deserialize, serialize, field, map, option, struct, enums } from '@race-foundation/borsh'
+import { sha256 } from './utils'
 import { Fields } from './types'
 import { GameEvent } from './events'
-import { EmitBridgeEvent, SubGame } from './effect'
-
-export class Versions {
-    @field('u64')
-    accessVersion!: bigint
-
-    @field('u64')
-    settleVersion!: bigint
-
-    static default(): Versions {
-        return new Versions({ accessVersion: 0n, settleVersion: 0n })
-    }
-
-    constructor(fields: Fields<Versions>) {
-        Object.assign(this, fields)
-    }
-}
+import { EmitBridgeEvent, LaunchSubGame, PlayerBalance } from './effect'
+import { SharedData } from './shared-data'
+import { VersionedData } from './versioned-data'
+import { GameSpec } from './game-spec'
+import { Versions } from './versions'
+import { Node, INodeStatus } from './node'
+import { ClientMode } from './client-mode'
 
 export class CheckpointOnChain {
     @field('u8-array')
@@ -39,72 +29,15 @@ export class CheckpointOnChain {
     }
 }
 
-export class GameSpec {
-    @field('string')
-    readonly gameAddr!: string
-
-    @field('usize')
-    readonly gameId!: number
-
-    @field('string')
-    readonly bundleAddr!: string
-
-    @field('u16')
-    readonly maxPlayers!: number
-
-    constructor(fields: Fields<GameSpec>) {
-        Object.assign(this, fields)
-    }
-}
-
-export class DispatchEvent {
-    @field('u64')
-    timeout!: bigint
-
-    @field(enums(GameEvent))
-    event!: GameEvent
-
-    constructor(fields: Fields<DispatchEvent>) {
-        Object.assign(this, fields)
-    }
-}
-
-export class VersionedData {
-    @field('usize')
-    id!: number
-
-    @field(struct(Versions))
-    versions!: Versions
-
-    @field('u8-array')
-    data!: Uint8Array
-
-    @field('u8-array')
-    sha!: Uint8Array
-
-    @field(struct(GameSpec))
-    spec!: GameSpec
-
-    @field(option(struct(DispatchEvent)))
-    dispatch!: DispatchEvent | undefined
-
-    @field(array(struct(EmitBridgeEvent)))
-    bridgeEvents!: EmitBridgeEvent[]
-
-    constructor(fields: any) {
-        Object.assign(this, fields)
-    }
-}
-
 export class CheckpointOffChain {
-    @field(map('usize', struct(VersionedData)))
-    data!: Map<number, VersionedData>
+    @field(struct(VersionedData))
+    rootData!: VersionedData
 
-    @field(map('usize', 'u8-array'))
-    proofs!: Map<number, Uint8Array>
+    @field(struct(SharedData))
+    sharedData!: SharedData
 
-    @field(array(struct(SubGame)))
-    launchSubgames!: SubGame[]
+    @field(array('u8-array'))
+    proofs!: Uint8Array[]
 
     constructor(fields: any) {
         Object.assign(this, fields)
@@ -136,14 +69,14 @@ export class Checkpoint {
     @field('u64')
     accessVersion!: bigint
 
-    @field(map('usize', struct(VersionedData)))
-    data!: Map<number, VersionedData>
+    @field(struct(VersionedData))
+    rootData!: VersionedData
 
-    @field(map('usize', 'u8-array'))
-    proofs!: Map<number, Uint8Array>
+    @field(struct(SharedData))
+    sharedData!: SharedData
 
-    @field(array(struct(SubGame)))
-    launchSubgames!: SubGame[]
+    @field(array('u8-array'))
+    proofs!: Uint8Array[]
 
     constructor(fields: any) {
         Object.assign(this, fields)
@@ -156,10 +89,9 @@ export class Checkpoint {
     static fromParts(offchainPart: CheckpointOffChain, onchainPart: CheckpointOnChain): Checkpoint {
         let checkpoint = Checkpoint.default()
         checkpoint.proofs = offchainPart.proofs
-        checkpoint.data = offchainPart.data
+        checkpoint.rootData = offchainPart.rootData
+        checkpoint.sharedData = offchainPart.sharedData
         checkpoint.accessVersion = onchainPart.accessVersion
-        checkpoint.root = onchainPart.root
-        checkpoint.launchSubgames = offchainPart.launchSubgames
         return checkpoint
     }
 
@@ -185,64 +117,18 @@ export class Checkpoint {
     }
 
     clone(): Checkpoint {
-        return new Checkpoint({
-            accessVersion: this.accessVersion,
-            data: new Map(this.data.entries()),
-        })
-    }
-
-    getData(id: number): Uint8Array | undefined {
-        return this.data.get(id)?.data
-    }
-
-    getSha(id: number): Uint8Array | undefined {
-        return this.data.get(id)?.sha
-    }
-
-    setAccessVersion(accessVersion: bigint) {
-        this.accessVersion = accessVersion
-    }
-
-    async initData(id: number, data: Uint8Array, spec: GameSpec) {
-        if (this.data.has(id)) {
-            throw new Error(`Checkpoint ${id} already exists`)
-        }
-        const sha = await sha256(data)
-        const versionedData = new VersionedData({
-            id,
-            data,
-            spec,
-            sha,
-            versions: Versions.default(),
-        })
-        this.data.set(id, versionedData)
-        this.updateRootAndProofs()
-    }
-
-    async initVersionedData(versionedData: VersionedData) {
-        this.data.set(versionedData.id, versionedData)
-    }
-
-    async setData(id: number, data: Uint8Array) {
-        const sha = await sha256(data)
-        const old = this.data.get(id)
-        if (old !== undefined) {
-            old.data = data
-            old.versions.settleVersion += 1n
-            old.sha = sha
-        } else {
-            throw new Error(`Checkpoint ${id} is missing`)
-        }
-        this.updateRootAndProofs()
-    }
-
-    getVersionedData(id: number): VersionedData | undefined {
-        return this.data.get(id)
-    }
-
-    containsVersionedData(id: number): boolean {
-        return this.data.has(id)
+        return structuredClone(this)
     }
 
     updateRootAndProofs() {}
+}
+
+export class ContextCheckpoint {
+    rootData: VersionedData
+    sharedData: SharedData
+
+    constructor(sharedData: SharedData, rootData: VersionedData) {
+        this.rootData = rootData
+        this.sharedData = sharedData
+    }
 }

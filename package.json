@@ -6,8 +6,7 @@
     "packages/sdk-core",
     "packages/sdk-solana",
     "packages/sdk-facade",
-    "packages/borsh",
-    "packages/sdk-sui"
+    "packages/borsh"
   ],
   "version": "0.1.0"
 }

@@ -136,6 +136,7 @@ export class RandomState {
     revealed: Map<number, string>
 
     constructor(id: number, spec: RandomSpec, owners: string[]) {
+        console.info('Initialize random state with owners: ', owners)
         if (owners.length === 0) {
             throw new Error('No enough servers')
         }
@@ -392,4 +393,5 @@ export class RandomState {
         }
         this.status = { kind: 'shared' }
     }
+
 }

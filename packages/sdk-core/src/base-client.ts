@@ -8,11 +8,13 @@ import {
 } from './connection'
 import { EventEffects, GameContext } from './game-context'
 import { GameContextSnapshot } from './game-context-snapshot'
+import { Credentials } from './credentials'
 import { ITransport } from './transport'
 import { IStorage } from './storage'
 import { Handler } from './handler'
-import { IEncryptor, sha256String } from './encryptor'
-import { GameAccount } from './accounts'
+import { IEncryptor } from './encryptor'
+import { IGameAccount } from './accounts'
+import { sha256String } from './utils'
 import { Client } from './client'
 import { Custom, GameEvent, ICustomEvent } from './events'
 import { DecryptionCache } from './decryption-cache'
@@ -229,18 +231,6 @@ export class BaseClient {
         }
     }
 
-    async __attachGameWithRetry() {
-        for (let i = 0; i < 10; i++) {
-            const resp = await this.__client.attachGame()
-            if (resp === 'success') {
-                break
-            } else {
-                console.warn(this.__logPrefix + 'Game is not ready, try again after 2 second.')
-                await new Promise(r => setTimeout(r, 2000))
-            }
-        }
-    }
-
     __invokeErrorCallback(err: ErrorKind, arg?: any) {
         if (this.__onError) {
             this.__onError(err, arg)
@@ -255,7 +245,7 @@ export class BaseClient {
         this.__onEvent(snapshot, state, event, options)
     }
 
-    async __getGameAccount(): Promise<GameAccount> {
+    async __getGameAccount(): Promise<IGameAccount> {
         let retries = 0
         while (true) {
             if (retries === MAX_RETRIES) {
@@ -329,10 +319,10 @@ export class BaseClient {
             // For log group
             try {
                 console.info('Event:', event)
+                console.info('Game context:', this.__gameContext)
                 this.__gameContext.setTimestamp(timestamp)
                 effects = await this.__handler.handleEvent(this.__gameContext, event)
                 state = this.__gameContext.handlerState
-
                 await this.__checkStateSha(stateSha, 'event-state-sha-mismatch')
             } catch (e: any) {
                 console.error(this.__logPrefix, e)
@@ -357,19 +347,44 @@ export class BaseClient {
     async __handleSync(frame: BroadcastFrameSync) {
         console.group(`${this.__logPrefix}Receive sync broadcast`, frame)
         try {
+            await this.__profileLoader.load(frame.newPlayers.map(p => p.addr))
+
             for (const node of frame.newServers) {
-                this.__gameContext.addNode(
-                    node.addr,
-                    node.accessVersion,
-                    node.addr === frame.transactor_addr ? 'transactor' : 'validator'
-                )
+                // Query server profile to get the credentials
+                const server = await this.__transport.getServerAccount(node.addr)
+
+                if (server === undefined) {
+                    throw new Error(`Server account not found for ${node.addr}`)
+                }
+
+                const credentials = Credentials.deserialize(server.credentials)
+                const mode = node.addr === frame.transactor_addr ? 'Transactor' : 'Validator'
+
+                this.__gameContext.addNode(node.addr, node.accessVersion, mode, credentials)
+
+                await this.__encryptor.importPublicCredentials(node.addr, credentials)
+                console.info(`Load server for ${node.addr}, mode: ${mode}`)
+
             }
             for (const node of frame.newPlayers) {
-                this.__gameContext.addNode(node.addr, node.accessVersion, 'player')
-                console.info('Load profile for:', node.addr)
+                // Query player profile to get the credentials
+                const profile = this.__profileLoader.getProfile(node.addr)
+
+                if (profile === undefined) {
+                    throw new Error(`Profile account not found for ${node.addr}`)
+                }
+
+                const credentials = Credentials.deserialize(profile.credentials)
+                const mode = 'Player'
+
+                this.__gameContext.addNode(node.addr, node.accessVersion, mode, credentials)
+
+                await this.__encryptor.importPublicCredentials(node.addr, credentials)
+                console.info(`Load profile for ${node.addr}`)
             }
-            this.__profileLoader.load(frame.newPlayers.map(p => p.addr))
+
             this.__gameContext.setAccessVersion(frame.accessVersion)
+
         } finally {
             console.groupEnd()
         }
@@ -405,22 +420,20 @@ export class BaseClient {
 
             // TODO, some special handling for subgame
             if (this.__gameId !== 0) {
-                const versionedData = frame.checkpointOffChain?.data.get(this.__gameId)
+                const versionedData = frame.checkpointOffChain?.rootData.subData.get(this.__gameId)
                 if (versionedData === undefined) {
                     console.warn('Invalid versioned data', versionedData)
                     throw new Error('Missing checkpoint, mostly a bug')
                 }
-                this.__gameContext.checkpoint.initVersionedData(versionedData)
-                this.__gameContext.setHandlerState(versionedData.data)
+                this.__gameContext.versionedData = versionedData
+                this.__gameContext.setHandlerState(versionedData.handlerState)
                 this.__gameContext.versions = versionedData.versions
-                this.__gameContext.stateSha = await sha256String(versionedData.data)
             } else {
-                const handlerState = this.__gameContext.checkpoint.getData(0)
+                const handlerState = this.__gameContext.versionedData.handlerState
                 if (handlerState === undefined) {
                     throw SdkError.malformedCheckpoint()
                 }
                 this.__gameContext.setHandlerState(handlerState)
-                this.__gameContext.stateSha = await sha256String(handlerState)
             }
 
             await this.__checkStateSha(frame.stateSha, 'checkpoint-state-sha-mismatch')
@@ -449,6 +462,9 @@ export class BaseClient {
         }
     }
 
+    /**
+     * Connect to the transactor.
+     */
     __connect() {
         this.__connection.connect(
             new ConnectParams({

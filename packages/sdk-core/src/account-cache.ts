@@ -1,4 +1,4 @@
-import { GameAccount } from './accounts'
+import { IGameAccount } from './accounts'
 
 /**
  * We use this structure to cache some useful data from the fetched
@@ -16,7 +16,7 @@ export interface GameAccountCache {
     transactorEndpoint: string | undefined
 }
 
-export function makeGameAccountCache(gameAccount: GameAccount): GameAccountCache {
+export function makeGameAccountCache(gameAccount: IGameAccount): GameAccountCache {
     return {
         addr: gameAccount.addr,
         bundleAddr: gameAccount.bundleAddr,

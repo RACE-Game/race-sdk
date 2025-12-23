@@ -23,10 +23,7 @@ function createWebSocket(endpoint: string): WebSocket {
 
 export type ConnectionState = 'disconnected' | 'connected' | 'reconnected' | 'closed'
 
-export type AttachResponse = 'success' | 'game-not-loaded'
-
 type Method =
-    | 'attach_game'
     | 'submit_event'
     | 'exit_game'
     | 'subscribe_event'
@@ -38,7 +35,6 @@ type Method =
 
 interface IAttachGameParams {
     signer: string
-    key: PublicKeyRaws
 }
 
 interface ISubscribeEventParams {
@@ -64,11 +60,8 @@ export type ConnectionSubscription = AsyncGenerator<ConnectionSubscriptionItem>
 export class AttachGameParams {
     @field('string')
     signer: string
-    @field(struct(PublicKeyRaws))
-    key: PublicKeyRaws
 
     constructor(fields: IAttachGameParams) {
-        this.key = fields.key
         this.signer = fields.signer
     }
 }
@@ -110,8 +103,6 @@ export class GetCheckpointParams {
 }
 
 export interface IConnection {
-    attachGame(params: AttachGameParams): Promise<AttachResponse>
-
     getState(): Promise<Uint8Array>
 
     getCheckpoint(params: GetCheckpointParams): Promise<CheckpointOffChain | undefined>
@@ -210,15 +201,15 @@ export class Connection implements IConnection {
         }
     }
 
-    async attachGame(params: AttachGameParams): Promise<AttachResponse> {
-        const req = makeReqNoSig(this.target, 'attach_game', params)
-        const resp: any = await this.requestXhr(req)
-        if (resp.error !== undefined) {
-            return 'game-not-loaded'
-        } else {
-            return 'success'
-        }
-    }
+    // async attachGame(params: AttachGameParams): Promise<AttachResponse> {
+    //     const req = makeReqNoSig(this.target, 'attach_game', params)
+    //     const resp: any = await this.requestXhr(req)
+    //     if (resp.error !== undefined) {
+    //         return 'game-not-loaded'
+    //     } else {
+    //         return 'success'
+    //     }
+    // }
 
     async getState(): Promise<Uint8Array> {
         const req = makeReqNoSig(this.target, 'get_state', {})

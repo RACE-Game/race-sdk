@@ -1,4 +1,4 @@
-import { Nft } from './accounts'
+import { INft } from './accounts'
 import { IStorage } from './storage'
 import { ITransport } from './transport'
 import { PlayerProfileWithPfp, ProfileCallbackFunction } from './types'
@@ -32,7 +32,7 @@ export class ProfileLoader implements IProfileLoader {
         }
     }
 
-    async __getNft(addr: string): Promise<Nft | undefined> {
+    async __getNft(addr: string): Promise<INft | undefined> {
         if (!this.__storage) {
             return await this.__transport.getNft(addr)
         } else {
@@ -78,7 +78,7 @@ export class ProfileLoader implements IProfileLoader {
                 if (profile.pfp) {
                     nft = await this.__getNft(profile.pfp)
                 }
-                const profileWithPfp = { pfp: nft, nick: profile.nick, addr: profile.addr }
+                const profileWithPfp = { pfp: nft, nick: profile.nick, addr: profile.addr, credentials: profile.credentials }
                 this.notify(profileWithPfp)
                 if (this.__storage) {
                     this.__storage.cacheProfile(profileWithPfp)

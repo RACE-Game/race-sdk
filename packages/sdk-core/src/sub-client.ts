@@ -50,7 +50,7 @@ export class SubClient extends BaseClient {
     }
 
     __connect() {
-        const settleVersion = this.__gameContext.checkpointVersion() || 0n
+        const settleVersion = this.__gameContext.versionedData.versions.settleVersion || 0n
         this.__connection.connect(new ConnectParams({ settleVersion }))
     }
 
@@ -61,7 +61,6 @@ export class SubClient extends BaseClient {
         console.group(`${this.__logPrefix}Attach to game`)
         try {
             this.__connect()
-            await this.__attachGameWithRetry()
             this.__startSubscribe()
         } catch (e) {
             console.error('Attaching game failed', e)

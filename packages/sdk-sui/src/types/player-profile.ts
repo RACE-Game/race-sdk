@@ -1,6 +1,6 @@
 import { bcs } from '@mysten/bcs'
 import { Address, Parser } from './parser'
-import { PlayerProfile } from '@race-foundation/sdk-core'
+import { IPlayerProfile } from '@race-foundation/sdk-core'
 
 const PlayerProfileSchema = bcs.struct('PlayerProfile', {
     id: Address,
@@ -9,9 +9,9 @@ const PlayerProfileSchema = bcs.struct('PlayerProfile', {
     pfp: bcs.option(Address),
 })
 
-export const PlayerPorfileParser: Parser<PlayerProfile, typeof PlayerProfileSchema> = {
+export const PlayerPorfileParser: Parser<IPlayerProfile, typeof PlayerProfileSchema> = {
     schema: PlayerProfileSchema,
-    transform: (input: typeof PlayerProfileSchema.$inferType): PlayerProfile => {
+    transform: (input: typeof PlayerProfileSchema.$inferType): IPlayerProfile => {
         return {
             addr: input.owner,
             nick: input.nick,

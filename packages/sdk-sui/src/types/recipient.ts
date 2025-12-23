@@ -1,10 +1,10 @@
 import { bcs } from '@mysten/bcs'
 import { Address, Parser } from './parser'
 import {
-    RecipientAccount,
-    RecipientSlot,
-    RecipientSlotOwner,
-    RecipientSlotShare,
+    IRecipientAccount,
+    IRecipientSlot,
+    IRecipientSlotOwner,
+    IRecipientSlotShare,
     RecipientSlotType,
     RECIPIENT_SLOT_TYPES,
 } from '@race-foundation/sdk-core'
@@ -45,9 +45,9 @@ const RecipientAccountSchema = bcs.struct('RecipientAccount', {
 })
 
 // Define the parser for RecipientAccount
-export const RecipientAccountParser: Parser<RecipientAccount, typeof RecipientAccountSchema> = {
+export const RecipientAccountParser: Parser<IRecipientAccount, typeof RecipientAccountSchema> = {
     schema: RecipientAccountSchema,
-    transform: (input: typeof RecipientAccountSchema.$inferType): RecipientAccount => {
+    transform: (input: typeof RecipientAccountSchema.$inferType): IRecipientAccount => {
         return {
             addr: input.addr,
             capAddr: input.capAddr ? input.capAddr : undefined,
@@ -58,8 +58,8 @@ export const RecipientAccountParser: Parser<RecipientAccount, typeof RecipientAc
                 shares: Array.from(slot.shares).map(share => ({
                     owner:
                         'unassigned' in share.owner && share.owner.unassigned
-                            ? { identifier: share.owner.unassigned.identifier, kind: 'unassigned' }
-                            : { addr: share.owner.assigned.addr, kind: 'assigned' },
+                            ? { identifier: share.owner.unassigned.identifier, kind: 'Unassigned' }
+                            : { addr: share.owner.assigned.addr, kind: 'Assigned' },
                     weights: share.weights,
                     claimAmount: BigInt(share.claimAmount),
                 })),
