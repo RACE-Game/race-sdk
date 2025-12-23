@@ -1,6 +1,12 @@
 import { RandomState, RandomSpec } from './random-state'
 import { DecisionState } from './decision-state'
-import { Checkpoint, GameSpec, Versions } from './checkpoint'
+import { VersionedData } from './versioned-data'
+import { SharedData, ISharedData } from './shared-data'
+import { Versions } from './versions'
+import { GameSpec } from './game-spec'
+import { ClientMode } from './client-mode'
+import { INode, INodeStatus } from './node'
+import { Credentials } from './credentials'
 import {
     ActionTimeout,
     Answer,
@@ -17,37 +23,21 @@ import { InitAccount } from './init-account'
 import {
     Effect,
     EmitBridgeEvent,
-    SubGame,
+    LaunchSubGame,
     Settle,
     Transfer,
     PlayerBalance,
     BalanceChange,
     BalanceChangeAdd,
 } from './effect'
-import { EntryType, GameAccount } from './accounts'
+import { IGameAccount } from './accounts'
+import { IEntryType } from './entry-type'
 import { Ciphertext, Digest, Fields } from './types'
-import { sha256String } from './encryptor'
+import { sha256String } from './utils'
 
 const OPERATION_TIMEOUT = 15_000n
 
-export type NodeStatus =
-    | {
-          kind: 'pending'
-          accessVersion: bigint
-      }
-    | { kind: 'ready' }
-    | { kind: 'disconnected' }
-
-export type ClientMode = 'player' | 'transactor' | 'validator'
-
-export type GameStatus = 'idle' | 'running' | 'closed'
-
-export interface INode {
-    addr: string
-    id: bigint
-    mode: ClientMode
-    status: NodeStatus
-}
+export type GameStatus = 'Idle' | 'Running' | 'Closed'
 
 export interface DispatchEvent {
     timeout: bigint
@@ -63,21 +53,13 @@ export interface EventEffects {
     settles: Settle[]
     transfer: Transfer | undefined
     checkpoint: Uint8Array | undefined
-    launchSubGames: SubGame[]
+    launchSubGames: LaunchSubGame[]
     bridgeEvents: EmitBridgeEvent[]
     startGame: boolean
 }
 
-export class ContextPlayer {
-    id!: bigint
-    position!: number
-    constructor(fields: Fields<ContextPlayer>) {
-        Object.assign(this, fields)
-    }
-}
-
 export class GameContext {
-    spec: GameSpec
+    gameSpec: GameSpec
     versions: Versions
     status: GameStatus
     nodes: INode[]
@@ -87,153 +69,30 @@ export class GameContext {
     timestamp: bigint
     randomStates: RandomState[]
     decisionStates: DecisionState[]
-    checkpoint: Checkpoint
-    subGames: SubGame[]
-    initData: Uint8Array
-    players: ContextPlayer[]
-    entryType: EntryType
-    stateSha: string
+    versionedData: VersionedData
+    subGames: GameSpec[]
+    entryType: IEntryType
 
-    constructor(gameAccount: GameAccount, checkpoint: Checkpoint) {
-        if (checkpoint === undefined) {
-            throw new Error('Missing checkpoint')
-        }
-        const checkpointAccessVersion = gameAccount.checkpointOnChain?.accessVersion || 0
-        const transactorAddr = gameAccount.transactorAddr
-        if (transactorAddr === undefined) {
-            throw new Error('Game not served')
-        }
-        let nodes: INode[] = []
-        gameAccount.servers.forEach(s =>
-            nodes.push({
-                addr: s.addr,
-                id: s.accessVersion,
-                mode: s.addr === transactorAddr ? 'transactor' : 'validator',
-                status:
-                    s.addr === gameAccount.transactorAddr
-                        ? { kind: 'ready' }
-                        : {
-                              kind: 'pending',
-                              accessVersion: s.accessVersion,
-                          },
-            })
-        )
-        gameAccount.players.forEach(p =>
-            nodes.push({
-                addr: p.addr,
-                id: p.accessVersion,
-                mode: 'player',
-                status:
-                    p.addr === gameAccount.transactorAddr
-                        ? { kind: 'ready' }
-                        : {
-                              kind: 'pending',
-                              accessVersion: p.accessVersion,
-                          },
-            })
-        )
-
-        const players = gameAccount.players
-            .filter(p => p.accessVersion <= checkpointAccessVersion)
-            .map(
-                p =>
-                    new ContextPlayer({
-                        id: p.accessVersion,
-                        position: p.position,
-                    })
-            )
-
-        const spec = new GameSpec({
-            gameAddr: gameAccount.addr,
-            gameId: 0,
-            bundleAddr: gameAccount.bundleAddr,
-            maxPlayers: gameAccount.maxPlayers,
-        })
-
-        const versions = new Versions({
-            accessVersion: gameAccount.accessVersion,
-            settleVersion: gameAccount.settleVersion,
-        })
-
-        let subGames = []
-
-        for (const versionedData of checkpoint.data.values()) {
-            if (versionedData.id === 0) {
-                // Skip the master game
-                continue
-            }
-            subGames.push(
-                new SubGame({
-                    gameId: versionedData.id,
-                    bundleAddr: versionedData.spec.bundleAddr,
-                    initAccount: new InitAccount({
-                        maxPlayers: versionedData.spec.maxPlayers,
-                        data: Uint8Array.of(),
-                    }),
-                })
-            )
+    constructor(sharedData: ISharedData, versionedData: VersionedData) {
+        let subGames: GameSpec[] = []
+        for (const vd of versionedData.subData.values()) {
+            subGames.push(vd.gameSpec)
         }
 
-        const balances = gameAccount.balances.map(x => new PlayerBalance(x))
-
-        this.spec = spec
-        this.versions = versions
-        this.status = 'idle'
+        this.gameSpec = versionedData.gameSpec
+        this.versions = versionedData.versions
+        this.status = 'Idle'
         this.dispatch = undefined
-        this.nodes = nodes
+        this.nodes = sharedData.nodes
         this.timestamp = 0n
         this.randomStates = []
         this.decisionStates = []
-        this.handlerState = Uint8Array.of()
-        this.checkpoint = checkpoint
+        this.handlerState = versionedData.handlerState
+        this.versionedData = versionedData
         this.subGames = subGames
-        this.initData = gameAccount.data
-        this.players = players
-        this.entryType = gameAccount.entryType
-        this.stateSha = ''
-        this.balances = balances
+        this.entryType = versionedData.gameSpec.entryType.generalize()
+        this.balances = sharedData.balances
     }
-
-    subContext(subGame: SubGame): GameContext {
-        const c = structuredClone(this)
-        Object.setPrototypeOf(c, GameContext.prototype)
-        // Use init_account or checkpoint
-        let spec = new GameSpec({
-            gameAddr: this.spec.gameAddr,
-            gameId: subGame.gameId,
-            bundleAddr: subGame.bundleAddr,
-            maxPlayers: subGame.initAccount.maxPlayers,
-        })
-        c.checkpoint = this.checkpoint
-        c.initData = Uint8Array.of()
-        c.versions = Versions.default()
-        c.handlerState = Uint8Array.of()
-        c.nodes = this.nodes
-        c.spec = spec
-        c.dispatch = undefined
-        c.timestamp = 0n
-        c.randomStates = []
-        c.decisionStates = []
-        c.subGames = []
-        c.entryType = { kind: 'disabled' }
-        c.players = []
-        return c
-    }
-
-    checkpointVersion(): bigint | undefined {
-        return this.checkpoint.getVersionedData(this.spec.gameId)?.versions.settleVersion
-    }
-
-    initAccount(): InitAccount {
-        return new InitAccount({
-            maxPlayers: this.spec.maxPlayers,
-            data: this.initData,
-        })
-    }
-
-    // get checkpointStateSha(): string {
-    //   return this.checkpoint.getSha(this.gameId) || '';
-    // }
 
     idToAddrUnchecked(id: bigint): string | undefined {
         return this.nodes.find(x => x.id === id)?.addr
@@ -346,7 +205,7 @@ export class GameContext {
         return this.randomStates.every(st => st.status.kind === 'ready')
     }
 
-    setNodeStatus(addr: string, status: NodeStatus) {
+    setNodeStatus(addr: string, status: INodeStatus) {
         let n = this.nodes.find(n => n.addr === addr)
         if (n === undefined) {
             throw new Error('Invalid node address')
@@ -354,13 +213,14 @@ export class GameContext {
         n.status = status
     }
 
-    addNode(nodeAddr: string, accessVersion: bigint, mode: ClientMode) {
+    addNode(nodeAddr: string, accessVersion: bigint, mode: ClientMode, credentials: Credentials) {
         this.nodes = this.nodes.filter(n => n.addr !== nodeAddr)
         this.nodes.push({
             addr: nodeAddr,
             id: accessVersion,
             mode,
-            status: { kind: 'pending', accessVersion },
+            status: { kind: 'Pending', accessVersion },
+            credentials,
         })
     }
 
@@ -370,7 +230,7 @@ export class GameContext {
 
     initRandomState(spec: RandomSpec): number {
         const randomId = this.randomStates.length + 1
-        const owners = this.nodes.filter(n => n.status.kind === 'ready' && n.mode !== 'player').map(n => n.addr)
+        const owners = this.nodes.filter(n => n.status.kind === 'Ready' && n.mode !== 'Player').map(n => n.addr)
         const randomState = new RandomState(randomId, spec, owners)
         this.randomStates.push(randomState)
         return randomId
@@ -483,7 +343,7 @@ export class GameContext {
             await this.setHandlerState(effect.handlerState)
             if (effect.isCheckpoint) {
                 this.bumpSettleVersion()
-                this.checkpoint.setData(this.spec.gameId, effect.handlerState)
+                this.versionedData.handlerState = effect.handlerState
 
                 // Reset random states
                 this.randomStates = []
@@ -494,13 +354,16 @@ export class GameContext {
                 this.balances = effect.balances
             } else if (effect.isInit) {
                 this.bumpSettleVersion()
-                this.checkpoint.initData(this.spec.gameId, effect.handlerState, this.spec)
+                this.versionedData = VersionedData.init(this.gameSpec, this.versions, effect.handlerState)
             }
         }
 
-        for (const subGame of effect.launchSubGames) {
-            this.addSubGame(subGame)
-        }
+        // XXX do we manage the sub game?
+        // we already have that info in versinoed data's sub data.
+
+        // for (const subGame of effect.launchSubGames) {
+        //     this.addSubGame(subGame)
+        // }
 
         return {
             checkpoint: effect.isCheckpoint ? effect.handlerState : undefined,
@@ -514,10 +377,10 @@ export class GameContext {
 
     setNodeReady(accessVersion: bigint) {
         for (const n of this.nodes) {
-            if (n.status.kind === 'pending') {
+            if (n.status.kind === 'Pending') {
                 if (n.status.accessVersion <= accessVersion) {
                     console.debug(`Set node ${n.addr} status to ready`)
-                    n.status = { kind: 'ready' }
+                    n.status = { kind: 'Ready' }
                 }
             }
         }
@@ -527,11 +390,11 @@ export class GameContext {
         this.timestamp = timestamp
     }
 
-    findSubGame(gameId: number): SubGame | undefined {
+    findSubGame(gameId: number): GameSpec | undefined {
         return this.subGames.find(g => g.gameId === Number(gameId))
     }
 
-    addSubGame(subGame: SubGame) {
+    addSubGame(subGame: GameSpec) {
         const found = this.subGames.find(s => s.gameId === subGame.gameId)
         if (found === undefined) {
             this.subGames.push(subGame)
@@ -539,20 +402,7 @@ export class GameContext {
     }
 
     async setHandlerState(state: Uint8Array) {
-        this.stateSha = await sha256String(state)
         this.handlerState = state
-    }
-
-    addPlayer(player: ContextPlayer) {
-        this.players.push(player)
-    }
-
-    removePlayer(playerId: bigint) {
-        this.players = this.players.filter(p => p.id !== playerId)
-    }
-
-    getStateSha(): string {
-        return this.stateSha
     }
 
     get accessVersion(): bigint {

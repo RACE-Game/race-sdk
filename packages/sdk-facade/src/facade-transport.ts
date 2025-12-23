@@ -27,11 +27,13 @@ import {
     CreateRegistrationParams,
     DepositParams,
     AttachBonusParams,
-    Token,
+    IToken,
     TokenBalance,
     AddRecipientSlotError,
     AddRecipientSlotParams,
     AddRecipientSlotResponse,
+    hexToBuffer,
+    generateCredentials,
 } from '@race-foundation/sdk-core'
 import { deserialize } from '@race-foundation/borsh'
 import { FacadeWallet } from './facade-wallet'
@@ -54,6 +56,7 @@ interface CreatePlayerProfileInstruction {
     playerAddr: string
     nick: string
     pfp?: string
+    credentials: Uint8Array
 }
 
 interface CreateGameAccountInstruction {
@@ -95,7 +98,7 @@ const nftMap: Record<string, Nft> = {
     },
 }
 
-const tokenMap: Record<string, Token> = {
+const tokenMap: Record<string, IToken> = {
     FACADE_NATIVE: {
         name: 'Native Token',
         symbol: 'NATIVE',
@@ -193,7 +196,7 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
         throw new Error('Method not implemented.')
     }
 
-    async listTokens(tokenAddrs: string[]): Promise<Token[]> {
+    async listTokens(tokenAddrs: string[]): Promise<IToken[]> {
         return Object.values(tokenMap).filter(t => tokenAddrs.includes(t.addr))
     }
 
@@ -217,9 +220,21 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
         response: ResponseHandle<CreatePlayerProfileResponse, CreatePlayerProfileError>
     ): Promise<void> {
         const playerAddr = wallet.walletAddr
-        const ix: CreatePlayerProfileInstruction = { playerAddr, ...params }
+
+        // Fetch the old one
+        const playerProfile = await this.getPlayerProfile(playerAddr)
+
+        let credentials
+        if (!playerProfile) {
+            const originSecret = hexToBuffer(wallet.walletAddr)
+            credentials = (await generateCredentials(originSecret)).serialize()
+        } else {
+            credentials = playerProfile.credentials
+        }
+
+        const ix: CreatePlayerProfileInstruction = { playerAddr, credentials, ...params }
         const signature = await this.sendInstruction('create_profile', ix)
-        const profile = { addr: playerAddr, nick: params.nick, pfp: params.pfp }
+        const profile = { addr: playerAddr, nick: params.nick, pfp: params.pfp, credentials }
         console.info('Profile:', profile)
         response.succeed({ signature, profile })
     }
@@ -269,23 +284,33 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
         }
         const ix: JoinInstruction = { playerAddr, accessVersion: gameAccount.accessVersion, ...params }
         if (params.createProfileIfNeeded) {
+            const playerProfile = await this.getPlayerProfile(wallet.walletAddr)
+            let credentials
+            if (!playerProfile) {
+                const originSecret = hexToBuffer(wallet.walletAddr)
+                credentials = (await generateCredentials(originSecret)).serialize()
+            } else {
+                credentials = playerProfile.credentials
+            }
+
             const createPlayerProfileIx: CreatePlayerProfileInstruction = {
                 playerAddr,
                 nick: wallet.walletAddr.substring(0, 6),
                 pfp: undefined,
+                credentials,
             }
             await this.sendInstruction('create_profile', createPlayerProfileIx)
         }
         const signature = await this.sendInstruction('join', ix)
         response.succeed({ signature })
     }
-    async getGameAccount(addr: string): Promise<RaceCore.GameAccount | undefined> {
+    async getGameAccount(addr: string): Promise<RaceCore.IGameAccount | undefined> {
         const data: Uint8Array | undefined = await this.fetchState('get_account_info', [addr])
         if (data === undefined) return undefined
         return deserialize(GameAccount, data).generalize()
     }
 
-    async listGameAccounts(addrs: string[]): Promise<RaceCore.GameAccount[]> {
+    async listGameAccounts(addrs: string[]): Promise<RaceCore.IGameAccount[]> {
         let ret = []
         for (const addr of addrs) {
             const gameAccount = await this.getGameAccount(addr)
@@ -315,13 +340,16 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
         if (data === undefined) return undefined
         return deserialize(ServerAccount, data)
     }
+    async listServerAccounts(addrs: string[]): Promise<Array<ServerAccount | undefined>> {
+        return await Promise.all(addrs.map(addr => this.getServerAccount(addr)))
+    }
     async getRegistration(addr: string): Promise<RegistrationAccount | undefined> {
         const data: Uint8Array | undefined = await this.fetchState('get_registration_info', [addr])
         if (data === undefined) return undefined
         return deserialize(RegistrationAccount, data)
     }
 
-    async getRecipient(_addr: string): Promise<RaceCore.RecipientAccount | undefined> {
+    async getRecipient(_addr: string): Promise<RaceCore.IRecipientAccount | undefined> {
         return undefined
     }
 
@@ -329,7 +357,7 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
         return tokenMap[addr]?.decimals
     }
 
-    async getToken(addr: string): Promise<Token | undefined> {
+    async getToken(addr: string): Promise<IToken | undefined> {
         return tokenMap[addr]
     }
 

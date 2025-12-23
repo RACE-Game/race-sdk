@@ -1,7 +1,7 @@
-.PHONY: all clean check
+.PHONY: all clean check test
 
 DEPS := $(wildcard packages/*/package.json)
-PACKAGES := borsh sdk-core sdk-solana sdk-sui sdk-facade
+PACKAGES := borsh sdk-core sdk-solana sdk-facade
 ALL_TARGETS := $(foreach pkg,$(PACKAGES),packages/$(pkg)/lib)
 
 all: $(ALL_TARGETS)
@@ -11,7 +11,8 @@ clean:
 	rm -rf $(ALL_TARGETS)
 	@echo Build cleaned!
 
-node_modules: $(DEPS)
+node_modules/: $(DEPS)
+	@echo Install dependencies
 	npm i -ws
 
 check:
@@ -19,8 +20,13 @@ check:
 	npm run check --workspace=@race-foundation/$(PKG)
 	@echo make: Leaving directory "'packages/$(PKG)'"
 
+test:
+	@echo make: Entering directory "'packages/$(PKG)'"
+	npm run test --workspace=@race-foundation/$(PKG)
+	@echo make: Leaving directory "'packages/$(PKG)'"
+
 define LIB_template
-packages/$(1)/lib: node_modules $$(wildcard packages/$(1)/src/*.ts wildcard packages/$(1)/src/**/*.ts packages/$(1)/*.js packages/$(1)/*.json)
+packages/$(1)/lib: node_modules/ $$(wildcard packages/$(1)/src/*.ts wildcard packages/$(1)/src/**/*.ts packages/$(1)/*.js packages/$(1)/*.json)
 	@echo make: Entering directory "'packages/$(1)'"
 	npm run check --workspace=@race-foundation/$(1)
 	npm run build --workspace=@race-foundation/$(1)

@@ -20,3 +20,4 @@ export const PLAYER_PROFILE_SEED = 'race-player-1000'
 export const SERVER_PROFILE_SEED = 'race-server-1000'
 export const NAME_LEN = 16 // The maximum length of player's nick name
 export const TITLE_LEN = 32 // The maximum length of game title
+export const PROFILE_VERSION = 2

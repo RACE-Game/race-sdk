@@ -1,15 +1,15 @@
 import { bcs } from '@mysten/bcs'
 import { Address, Parser } from './parser'
 import {
-    Bonus,
-    PlayerBalance,
+    IBonus,
+    IPlayerBalance,
     CheckpointOnChain,
     EntryLock,
-    EntryType,
-    GameAccount,
-    PlayerJoin,
-    PlayerDeposit,
-    ServerJoin,
+    IEntryType,
+    IGameAccount,
+    IPlayerJoin,
+    IPlayerDeposit,
+    IServerJoin,
     VoteType,
     ENTRY_LOCKS,
     VOTE_TYPES,
@@ -23,9 +23,9 @@ const BonusSchema = bcs.struct('BonusSchema', {
     amount: bcs.u64(),
 })
 
-const BonusParser: Parser<Bonus, typeof BonusSchema> = {
+const BonusParser: Parser<IBonus, typeof BonusSchema> = {
     schema: BonusSchema,
-    transform: (input: typeof BonusSchema.$inferType): Bonus => {
+    transform: (input: typeof BonusSchema.$inferType): IBonus => {
         return {
             identifier: input.identifier,
             tokenAddr: input.tokenAddr,
@@ -39,9 +39,9 @@ const PlayerBalanceSchema = bcs.struct('PlayerBalance', {
     balance: bcs.u64(),
 })
 
-const PlayerBalanceParser: Parser<PlayerBalance, typeof PlayerBalanceSchema> = {
+const PlayerBalanceParser: Parser<IPlayerBalance, typeof PlayerBalanceSchema> = {
     schema: PlayerBalanceSchema,
-    transform: (input: typeof PlayerBalanceSchema.$inferType): PlayerBalance => {
+    transform: (input: typeof PlayerBalanceSchema.$inferType): IPlayerBalance => {
         return {
             playerId: BigInt(input.playerId),
             balance: BigInt(input.balance),
@@ -70,27 +70,27 @@ const EntryTypeSchema = bcs.enum('EntryTypeSchema', {
     Disabled: null,
 })
 
-const EntryTypeParser: Parser<EntryType, typeof EntryTypeSchema> = {
+const EntryTypeParser: Parser<IEntryType, typeof EntryTypeSchema> = {
     schema: EntryTypeSchema,
-    transform: (input: typeof EntryTypeSchema.$inferType): EntryType => {
+    transform: (input: typeof EntryTypeSchema.$inferType): IEntryType => {
         if (input.$kind === 'Cash') {
             return {
                 minDeposit: BigInt(input.Cash.min_deposit),
                 maxDeposit: BigInt(input.Cash.max_deposit),
-                kind: 'cash',
+                kind: 'Cash',
             }
         } else if (input.$kind === 'Ticket') {
             return {
                 amount: BigInt(input.Ticket.amount),
-                kind: 'ticket',
+                kind: 'Ticket',
             }
         } else if (input.$kind == 'Gating') {
             return {
                 collection: input.Gating.collection,
-                kind: 'gating',
+                kind: 'Gating',
             }
         } else {
-            return { kind: 'disabled' }
+            return { kind: 'Disabled' }
         }
     },
 }
@@ -152,9 +152,9 @@ const GameSchema = bcs.struct('Game', {
 })
 
 // Transform function to convert from BCS to the TypeScript type
-export const GameAccountParser: Parser<GameAccount, typeof GameSchema> = {
+export const GameAccountParser: Parser<IGameAccount, typeof GameSchema> = {
     schema: GameSchema,
-    transform: (input: typeof GameSchema.$inferType): GameAccount => {
+    transform: (input: typeof GameSchema.$inferType): IGameAccount => {
         console.info('input.checkpointOnChain =>', input.checkpointOnChain)
         console.info('input.transactorAddr =>', input.transactorAddr)
 
