@@ -1,4 +1,4 @@
-import { Nft, Token } from './accounts'
+import { INft, IToken } from './accounts'
 import { EncryptorExportedKeys } from './encryptor'
 import { PlayerProfileWithPfp } from './types'
 
@@ -6,13 +6,13 @@ const DB_KEY = 'race-protocol'
 const DB_VER = 2
 
 export interface IStorage {
-    cacheTokens(tokens: Token[]): void
+    cacheTokens(tokens: IToken[]): void
 
-    getTokens(tokenAddrs: string[]): Promise<Array<Token | undefined>>
+    getTokens(tokenAddrs: string[]): Promise<Array<IToken | undefined>>
 
-    cacheNft(token: Nft): void
+    cacheNft(token: INft): void
 
-    getNft(nftAddr: string): Promise<Nft | undefined>
+    getNft(nftAddr: string): Promise<INft | undefined>
 
     cacheEncryptorKeys(keys: EncryptorExportedKeys): void
 
@@ -90,7 +90,7 @@ export class Storage implements IStorage {
         })
     }
 
-    cacheTokens(tokens: Token[]) {
+    cacheTokens(tokens: IToken[]) {
         const request = indexedDB.open(DB_KEY, DB_VER)
 
         request.onsuccess = _e => {
@@ -109,17 +109,17 @@ export class Storage implements IStorage {
         }
     }
 
-    getTokens(tokenAddrs: string[]): Promise<Array<Token | undefined>> {
+    getTokens(tokenAddrs: string[]): Promise<Array<IToken | undefined>> {
         return new Promise((resolve, _reject) => {
             const request = indexedDB.open(DB_KEY, DB_VER)
             request.onsuccess = _e => {
                 let db = request.result
-                let results: Array<Token | undefined> = []
+                let results: Array<IToken | undefined> = []
                 let count = 0
                 for (const tokenAddr of tokenAddrs) {
                     let read = db.transaction('tokens', 'readonly').objectStore('tokens').get(tokenAddr)
                     read.onsuccess = _e => {
-                        const token = read.result as Token | undefined
+                        const token = read.result as IToken | undefined
                         results.push(token)
                         count++
                         if (count === tokenAddrs.length) {
@@ -135,7 +135,7 @@ export class Storage implements IStorage {
         })
     }
 
-    cacheNft(nft: Nft) {
+    cacheNft(nft: INft) {
         const request = indexedDB.open(DB_KEY, DB_VER)
 
         request.onsuccess = _e => {
@@ -151,14 +151,14 @@ export class Storage implements IStorage {
         }
     }
 
-    getNft(nftAddr: string): Promise<Nft | undefined> {
+    getNft(nftAddr: string): Promise<INft | undefined> {
         return new Promise((resolve, reject) => {
             const request = indexedDB.open(DB_KEY, DB_VER)
             request.onsuccess = _e => {
                 let db = request.result
                 let read = db.transaction('nfts', 'readonly').objectStore('nfts').get(nftAddr)
                 read.onsuccess = _e => {
-                    const nft = read.result as Nft | undefined
+                    const nft = read.result as INft | undefined
                     resolve(nft)
                 }
                 read.onerror = _e => {
