@@ -334,7 +334,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             return response.failed('game-not-in-reg')
         }
 
-        const computeBudgetIx = CB.getSetComputeUnitLimitInstruction({ units: 500_000 });
+        const computeBudgetIx = CB.getSetComputeUnitLimitInstruction({ units: 600_000 });
 
         const ixs: IInstruction[] = [computeBudgetIx]
         const [pda, _] = await getProgramDerivedAddress({
