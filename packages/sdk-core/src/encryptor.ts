@@ -251,7 +251,6 @@ async function deriveKey(origin: Uint8Array, salt: Uint8Array): Promise<CryptoKe
     return derivedKey
 }
 
-
 /**
  * Generate a new credentials.
  *
@@ -382,15 +381,18 @@ class NodePublicKey implements INodePublicKey {
 }
 
 export class Encryptor implements IEncryptor {
-    #privateKey: INodePrivateKey
+    #privateKey: INodePrivateKey | undefined
     #publicKeys: Map<string, INodePublicKey>
 
-    constructor(priv: INodePrivateKey) {
-        this.#privateKey = priv
+    constructor() {
+        this.#privateKey = undefined
         this.#publicKeys = new Map()
     }
 
     async importCredentials(originalSecret: Uint8Array, addr: string, credentials: Credentials): Promise<void> {
+
+        console.debug(`Import credentials for node: ${addr}`)
+
         const {
             ecPublic, rsaPublic, salt, ecIv, rsaIv, ecPrivateEnc, rsaPrivateEnc,
         } = credentials
@@ -415,8 +417,8 @@ export class Encryptor implements IEncryptor {
             rsaPrivateEnc,
         );
 
-        const ecPrivateKey = await subtle().importKey('pkcs8', ecPrivate, RSA_PARAMS, true, ['sign'])
-        const ecPublicKey = await subtle().importKey('spki', ecPublic, RSA_PARAMS, true, ['verify'])
+        const ecPrivateKey = await subtle().importKey('pkcs8', ecPrivate, EC_PARAMS, true, ['sign'])
+        const ecPublicKey = await subtle().importKey('spki', ecPublic, EC_PARAMS, true, ['verify'])
         const rsaPrivateKey = await subtle().importKey('pkcs8', rsaPrivate, RSA_PARAMS, true, ['decrypt'])
         const rsaPublicKey = await subtle().importKey('spki', rsaPublic, RSA_PARAMS, true, ['encrypt'])
 
@@ -424,10 +426,6 @@ export class Encryptor implements IEncryptor {
             rsa: { privateKey: rsaPrivateKey, publicKey: rsaPublicKey },
             ec: { privateKey: ecPrivateKey, publicKey: ecPublicKey },
         }
-        this.#publicKeys.set(addr, {
-            rsa: rsaPublicKey,
-            ec: ecPublicKey,
-        })
     }
 
     async importPublicCredentials(addr: string, credentials: Credentials): Promise<void> {
@@ -435,7 +433,7 @@ export class Encryptor implements IEncryptor {
             ecPublic, rsaPublic,
         } = credentials
 
-        const ecPublicKey = await subtle().importKey('spki', ecPublic, RSA_PARAMS, true, ['verify'])
+        const ecPublicKey = await subtle().importKey('spki', ecPublic, EC_PARAMS, true, ['verify'])
         const rsaPublicKey = await subtle().importKey('spki', rsaPublic, RSA_PARAMS, true, ['encrypt'])
 
         this.#publicKeys.set(addr, {
@@ -445,6 +443,7 @@ export class Encryptor implements IEncryptor {
     }
 
     async decryptRsa(text: Uint8Array): Promise<Uint8Array> {
+        if (!this.#privateKey) throw new Error('No credential available for RSA decryption')
         return await decryptRsa(this.#privateKey.rsa.privateKey, text)
     }
 
@@ -476,6 +475,7 @@ export class Encryptor implements IEncryptor {
     }
 
     async signRaw(message: Uint8Array): Promise<Uint8Array> {
+        if (!this.#privateKey) throw new Error('No credential available for EC sign')
         return await signEc(this.#privateKey.ec.privateKey, message)
     }
 
@@ -491,7 +491,13 @@ export class Encryptor implements IEncryptor {
     async sign(message: Uint8Array, signer: string): Promise<Signature> {
         const timestamp = BigInt(new Date().getTime())
         const buf = this.makeSignMessage(message, timestamp)
+
+        console.info("XXX, message:", buf)
+        console.info("XXX, timestamp:", timestamp)
+        console.info("XXX, public keys:", this.#publicKeys)
+
         const signature = await this.signRaw(buf)
+        console.info("XXX, signature:", signature)
         return new Signature({
             timestamp,
             signer,
@@ -509,77 +515,10 @@ export class Encryptor implements IEncryptor {
         return await verifyEc(ecPublicKey, signature.signature, buf)
     }
 
-    async exportKeys(playerAddr: string): Promise<EncryptorExportedKeys> {
-        return {
-            playerAddr,
-            ec: await this.exportEcKeys(),
-            rsa: await this.exportRsaKeys(),
-        }
-    }
-
-    static async create(playerAddr: string, storage?: IStorage): Promise<Encryptor> {
-        if (storage) {
-            const imported = await this.importFromStorage(playerAddr, storage)
-            if (imported !== undefined) {
-                return imported
-            }
-        }
-        const rsaKeypair = await generateRsaKeypair()
-        const ecKeypair = await generateEcKeypair()
-        const encryptor = new Encryptor(new NodePrivateKey(rsaKeypair, ecKeypair))
-        if (storage) {
-            encryptor.exportToStorage(playerAddr, storage)
-        }
-        return encryptor
-    }
-
-    async exportToStorage(playerAddr: string, storage: IStorage) {
-        const ec = await this.exportEcKeys()
-        const rsa = await this.exportRsaKeys()
-        storage.cacheEncryptorKeys({ playerAddr, ec, rsa })
-    }
-
-    static async importFromStorage(playerAddr: string, storage: IStorage): Promise<Encryptor | undefined> {
-        const keys = await storage.getEncryptorKeys(playerAddr)
-        if (!keys) {
-            return undefined
-        }
-        const ecKeypair = await importEc(keys.ec)
-        const rsaKeypair = await importRsa(keys.rsa)
-        return new Encryptor(new NodePrivateKey(rsaKeypair, ecKeypair))
-    }
-
-    async exportRsaKeys(): Promise<[string, string]> {
-        return await exportRsa(this.#privateKey.rsa)
-    }
-
-    async exportEcKeys(): Promise<[string, string]> {
-        return await exportEc(this.#privateKey.ec)
-    }
-
     async addPublicKey(addr: string, { rsa, ec }: IPublicKeyRaws): Promise<void> {
         const rsa_ = await importRsaPublicKey(rsa)
         const ec_ = await importEcPublicKey(ec)
         this.#publicKeys.set(addr, new NodePublicKey(rsa_, ec_))
-    }
-
-    async exportPublicKey(addr?: string): Promise<IPublicKeyRaws> {
-        let rsa, ec
-        if (addr === undefined) {
-            rsa = this.#privateKey.rsa.publicKey
-            ec = this.#privateKey.ec.publicKey
-        } else {
-            const publicKeys = this.#publicKeys.get(addr)
-            if (publicKeys === undefined) {
-                throw SdkError.publicKeyNotFound(addr)
-            }
-            rsa = publicKeys.rsa
-            ec = publicKeys.ec
-        }
-        return new PublicKeyRaws({
-            rsa: await exportRsaPublicKey(rsa),
-            ec: await exportEcPublicKey(ec),
-        })
     }
 
     /**

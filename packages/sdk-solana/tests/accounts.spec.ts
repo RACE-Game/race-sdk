@@ -100,7 +100,6 @@ describe('Test account data serialization', () => {
           balance: BigInt(100),
           accessVersion: BigInt(1),
           position: 0,
-          verifyKey: 'key0',
         }),
       ],
       servers: [
@@ -108,7 +107,6 @@ describe('Test account data serialization', () => {
           key: PublicKey.unique(),
           endpoint: 'http://foo.bar',
           accessVersion: BigInt(2),
-          verifyKey: 'key1',
         }),
       ],
       dataLen: 10,

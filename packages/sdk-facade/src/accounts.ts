@@ -169,8 +169,6 @@ export class PlayerJoin {
     readonly position!: number
     @field('u64')
     readonly accessVersion!: bigint
-    @field('string')
-    readonly verifyKey!: string
     constructor(fields: Fields<PlayerJoin>) {
         Object.assign(this, fields)
     }
@@ -183,8 +181,6 @@ export class ServerJoin {
     readonly endpoint!: string
     @field('u64')
     readonly accessVersion!: bigint
-    @field('string')
-    readonly verifyKey!: string
     constructor(fields: Fields<ServerJoin>) {
         Object.assign(this, fields)
     }

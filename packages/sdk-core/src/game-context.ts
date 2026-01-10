@@ -213,14 +213,13 @@ export class GameContext {
         n.status = status
     }
 
-    addNode(nodeAddr: string, accessVersion: bigint, mode: ClientMode, credentials: Credentials) {
+    addNode(nodeAddr: string, accessVersion: bigint, mode: ClientMode) {
         this.nodes = this.nodes.filter(n => n.addr !== nodeAddr)
         this.nodes.push({
             addr: nodeAddr,
             id: accessVersion,
             mode,
             status: { kind: 'Pending', accessVersion },
-            credentials,
         })
     }
 

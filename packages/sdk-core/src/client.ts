@@ -77,6 +77,7 @@ export class Client {
             randomState.listRevealedSecrets(),
             options
         )
+        console.debug('XXX before decryptWithsecrets', this.__addr)
         let assigned = await this.__encryptor.decryptWithSecrets(
             randomState.listAssignedCiphertexts(this.__addr),
             randomState.listSharedSecrets(this.__addr),

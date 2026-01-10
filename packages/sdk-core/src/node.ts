@@ -1,6 +1,5 @@
 import { field, struct, enums, variant } from '@race-foundation/borsh'
 import { Indices, Fields } from './types'
-import { Credentials } from './credentials'
 import { CLIENT_MODES, ClientMode } from './client-mode'
 
 export type NodeStatusKind = 'Pending' | 'Confirming' | 'Ready' | 'Disconnected'
@@ -85,7 +84,6 @@ export interface INode {
     id: bigint
     mode: ClientMode
     status: INodeStatus
-    credentials: Credentials
 }
 
 export class Node {
@@ -97,8 +95,6 @@ export class Node {
     mode!: Indices<typeof CLIENT_MODES>
     @field(enums(ANodeStatus))
     status!: ANodeStatus
-    @field(struct(Credentials))
-    credentials!: Credentials
 
     generalize(): INode {
         return {
@@ -106,7 +102,6 @@ export class Node {
             id: this.id,
             mode: CLIENT_MODES[this.mode],
             status: this.status.generalize(),
-            credentials: this.credentials,
         }
     }
 

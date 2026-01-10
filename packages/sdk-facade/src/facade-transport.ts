@@ -56,7 +56,7 @@ interface CreatePlayerProfileInstruction {
     playerAddr: string
     nick: string
     pfp?: string
-    credentials: Uint8Array
+    credentials: number[]
 }
 
 interface CreateGameAccountInstruction {
@@ -232,7 +232,12 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
             credentials = playerProfile.credentials
         }
 
-        const ix: CreatePlayerProfileInstruction = { playerAddr, credentials, ...params }
+        const ix: CreatePlayerProfileInstruction = {
+            playerAddr,
+            credentials: [...credentials],
+            nick: params.nick,
+            pfp: params.pfp,
+        }
         const signature = await this.sendInstruction('create_profile', ix)
         const profile = { addr: playerAddr, nick: params.nick, pfp: params.pfp, credentials }
         console.info('Profile:', profile)
@@ -285,21 +290,21 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
         const ix: JoinInstruction = { playerAddr, accessVersion: gameAccount.accessVersion, ...params }
         if (params.createProfileIfNeeded) {
             const playerProfile = await this.getPlayerProfile(wallet.walletAddr)
-            let credentials
             if (!playerProfile) {
+                console.info('No profile found, create a new one before join')
                 const originSecret = hexToBuffer(wallet.walletAddr)
-                credentials = (await generateCredentials(originSecret)).serialize()
-            } else {
-                credentials = playerProfile.credentials
-            }
+                const credentials = (await generateCredentials(originSecret)).serialize()
 
-            const createPlayerProfileIx: CreatePlayerProfileInstruction = {
-                playerAddr,
-                nick: wallet.walletAddr.substring(0, 6),
-                pfp: undefined,
-                credentials,
+                console.info("XXX credentials:", credentials)
+
+                const createPlayerProfileIx: CreatePlayerProfileInstruction = {
+                    playerAddr,
+                    nick: wallet.walletAddr.substring(0, 6),
+                    pfp: undefined,
+                    credentials: [...credentials],
+                }
+                await this.sendInstruction('create_profile', createPlayerProfileIx)
             }
-            await this.sendInstruction('create_profile', createPlayerProfileIx)
         }
         const signature = await this.sendInstruction('join', ix)
         response.succeed({ signature })
@@ -307,9 +312,10 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
     async getGameAccount(addr: string): Promise<RaceCore.IGameAccount | undefined> {
         const data: Uint8Array | undefined = await this.fetchState('get_account_info', [addr])
         if (data === undefined) return undefined
-        return deserialize(GameAccount, data).generalize()
+        const gameAccount = deserialize(GameAccount, data).generalize()
+        console.debug(`Got game account ${addr}:`, gameAccount)
+        return gameAccount
     }
-
     async listGameAccounts(addrs: string[]): Promise<RaceCore.IGameAccount[]> {
         let ret = []
         for (const addr of addrs) {
@@ -430,5 +436,9 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
         } else {
             return undefined
         }
+    }
+
+    async getCredentialOriginSecret(wallet: FacadeWallet): Promise<Uint8Array> {
+        return hexToBuffer(this.walletAddr(wallet))
     }
 }
