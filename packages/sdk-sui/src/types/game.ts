@@ -113,7 +113,6 @@ const GameSchema = bcs.struct('Game', {
             addr: Address,
             position: bcs.u16(),
             accessVersion: bcs.u64(),
-            verifyKey: bcs.string(),
         })
     ),
     deposits: bcs.vector(
@@ -130,7 +129,6 @@ const GameSchema = bcs.struct('Game', {
             addr: Address,
             endpoint: bcs.string(),
             accessVersion: bcs.u64(),
-            verifyKey: bcs.string(),
         })
     ),
     balance: bcs.u64(),
@@ -170,7 +168,6 @@ export const GameAccountParser: Parser<IGameAccount, typeof GameSchema> = {
                 addr: player.addr,
                 position: player.position,
                 accessVersion: BigInt(player.accessVersion),
-                verifyKey: player.verifyKey,
             })),
             deposits: Array.from(input.deposits).map(deposit => ({
                 addr: deposit.addr,
@@ -183,7 +180,6 @@ export const GameAccountParser: Parser<IGameAccount, typeof GameSchema> = {
                 addr: server.addr,
                 endpoint: server.endpoint,
                 accessVersion: BigInt(server.accessVersion),
-                verifyKey: server.verifyKey,
             })),
             transactorAddr: input.transactorAddr ?? undefined,
             votes: Array.from(input.votes).map(vote => ({

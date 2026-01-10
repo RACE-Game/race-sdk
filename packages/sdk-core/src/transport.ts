@@ -309,4 +309,6 @@ export interface ITransport<W = never> {
     listTokenBalance(walletAddr: string, tokenAddrs: string[]): Promise<TokenBalance[]>
 
     listNfts(walletAddr: string): Promise<INft[]>
+
+    getCredentialOriginSecret(wallet: W): Promise<Uint8Array>
 }

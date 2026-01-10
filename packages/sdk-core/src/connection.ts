@@ -229,7 +229,8 @@ export class Connection implements IConnection {
             const req = await this.makeReq(this.target, 'submit_event', params)
             await this.requestXhr(req)
             return undefined
-        } catch (_: any) {
+        } catch (e: any) {
+            console.warn('Error in sending request:', e)
             return 'disconnected'
         }
     }
@@ -239,7 +240,8 @@ export class Connection implements IConnection {
             const req = await this.makeReq(this.target, 'submit_message', params)
             await this.requestXhr(req)
             return undefined
-        } catch (_: any) {
+        } catch (e: any) {
+            console.warn('Error in sending request:', e)
             return 'disconnected'
         }
     }

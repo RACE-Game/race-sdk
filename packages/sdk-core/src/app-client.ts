@@ -28,7 +28,7 @@ import { GameContextSnapshot } from './game-context-snapshot'
 
 export type AppClientInitOpts = {
     transport: ITransport
-    storage?: IStorage
+    storage: IStorage
     gameAddr: string
     playerAddr: string
     onEvent: EventCallbackFunction
@@ -58,7 +58,7 @@ export type AppClientCtorOpts = {
     handler: Handler
     client: Client
     transport: ITransport
-    storage?: IStorage
+    storage: IStorage
     encryptor: IEncryptor
     profileLoader: IProfileLoader
     connection: IConnection
@@ -128,8 +128,9 @@ export class AppClient extends BaseClient {
 
             let token: IToken | undefined = await transport.getToken(gameAccount.tokenAddr)
 
-            const [encryptor, gameBundle, transactorAccount] = await Promise.all([
-                Encryptor.create(playerAddr, storage),
+            const encryptor = new Encryptor()
+
+            const [gameBundle, transactorAccount] = await Promise.all([
                 getGameBundle(transport, gameAccount.bundleAddr),
                 transport.getServerAccount(transactorAddr),
             ])
@@ -282,6 +283,7 @@ export class AppClient extends BaseClient {
                 playerAddr: this.__playerAddr,
                 transport: this.__transport,
                 encryptor: this.__encryptor,
+                storage: this.__storage,
                 onEvent,
                 onMessage,
                 onTxState,

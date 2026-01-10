@@ -33,7 +33,7 @@ import {
 } from './transport'
 import { PlayerProfileWithPfp } from './types'
 import { getLatestCheckpoints } from './connection'
-import { IPublicKeyRaws } from './encryptor'
+import { generateCredentials, IPublicKeyRaws } from './encryptor'
 import { IStorage } from './storage'
 
 export type AppHelperInitOpts<W> = {
@@ -49,7 +49,6 @@ export type JoinOpts = {
     addr: string
     amount: bigint
     position?: number
-    keys: IPublicKeyRaws
     createProfileIfNeeded?: boolean
 }
 
@@ -126,6 +125,14 @@ export class AppHelper<W> {
         const response = new ResponseHandle<AddRecipientSlotResponse, AddRecipientSlotError>()
         this.__transport.addRecipientSlot(wallet, params, response)
         return response.stream()
+    }
+
+    /**
+     * Generate a credentials secret if it does not exist.
+     */
+    async generateCredentials(wallet: W, storage: IStorage) {
+        const originalSecret = await this.__transport.getCredentialOriginSecret(wallet)
+        storage.cacheSecret(this.__transport.walletAddr(wallet), originalSecret)
     }
 
     /**
@@ -448,11 +455,11 @@ export class AppHelper<W> {
     }
 
     /**
-     * Initiates a join request for a game session. It exports a public key and
-     * sends a join request with required parameters like game address, amount,
-     * position, and whether to create a profile if needed. Returns a stream to
-     * handle the response of the join operation, which can either be a success
-     * (JoinResponse) or an error (JoinError).
+     * Initiates a join request for a game session. Send a join
+     * request with required parameters like game address, amount,
+     * position, and whether to create a profile if needed. Returns a
+     * stream to handle the response of the join operation, which can
+     * either be a success (JoinResponse) or an error (JoinError).
      *
      * @param {JoinOpts} params - Options and parameters to configure the join request.
      * @returns {ResponseStream<JoinResponse, JoinError>} A stream to handle the
@@ -474,6 +481,7 @@ export class AppHelper<W> {
 
         return response.stream()
     }
+
 
     deposit(wallet: W, params: DepositOpts): ResponseStream<DepositResponse, DepositError> {
         const response = new ResponseHandle<DepositResponse, DepositError>()

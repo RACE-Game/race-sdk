@@ -92,8 +92,6 @@ export class ServerJoin {
     endpoint!: string
     @field('u64')
     accessVersion!: bigint
-    @field('string')
-    verifyKey!: string
     constructor(fields: IServerJoin) {
         Object.assign(this, fields)
     }
@@ -102,7 +100,6 @@ export class ServerJoin {
             addr: this.key,
             endpoint: this.endpoint,
             accessVersion: this.accessVersion,
-            verifyKey: this.verifyKey,
         }
     }
 }
@@ -114,8 +111,6 @@ export class PlayerJoin {
     position!: number
     @field('u64')
     accessVersion!: bigint
-    @field('string')
-    verifyKey!: string
 
     constructor(fields: Fields<PlayerJoin>) {
         Object.assign(this, fields)
@@ -126,7 +121,6 @@ export class PlayerJoin {
             addr: this.key,
             position: this.position,
             accessVersion: this.accessVersion,
-            verifyKey: this.verifyKey,
         }
     }
 }

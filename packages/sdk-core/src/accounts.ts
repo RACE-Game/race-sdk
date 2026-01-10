@@ -13,7 +13,6 @@ export interface IPlayerJoin {
     readonly addr: string
     readonly position: number
     readonly accessVersion: bigint
-    readonly verifyKey: string
 }
 
 export interface IPlayerDeposit {
@@ -28,7 +27,6 @@ export interface IServerJoin {
     readonly addr: string
     readonly endpoint: string
     readonly accessVersion: bigint
-    readonly verifyKey: string
 }
 
 export interface IBonus {

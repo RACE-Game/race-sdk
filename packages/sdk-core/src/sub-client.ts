@@ -1,6 +1,7 @@
 import { BaseClient } from './base-client'
 import { Client } from './client'
 import { IConnection, ConnectParams } from './connection'
+import { IStorage } from './storage'
 import { DecryptionCache } from './decryption-cache'
 import { IEncryptor } from './encryptor'
 import { GameContext } from './game-context'
@@ -26,6 +27,7 @@ export type SubClientCtorOpts = {
     client: Client
     transport: ITransport
     encryptor: IEncryptor
+    storage: IStorage
     profileLoader: IProfileLoader
     connection: IConnection
     gameContext: GameContext
