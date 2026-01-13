@@ -1,5 +1,5 @@
 import { deserialize, serialize } from '@race-foundation/borsh'
-import { GameBundle } from './accounts'
+import { IGameBundle } from './accounts'
 import {
     AnswerDecision,
     GameEvent,
@@ -21,8 +21,6 @@ import { InitAccount } from './init-account'
 
 export interface IHandler {
     handleEvent(context: GameContext, event: GameEvent): Promise<EventEffects>
-
-    initState(context: GameContext, initAccount: InitAccount): Promise<EventEffects>
 }
 
 export class Handler implements IHandler {
@@ -44,7 +42,7 @@ export class Handler implements IHandler {
     }
 
     static async initialize(
-        gameBundle: GameBundle,
+        gameBundle: IGameBundle,
         encryptor: IEncryptor,
         client: Client,
         decryptionCache: DecryptionCache
@@ -74,15 +72,8 @@ export class Handler implements IHandler {
         await this.generalPreHandleEvent(context, event, this.#encryptor)
         const eventEffects = await this.customHandleEvent(context, event)
         await this.generalPostHandleEvent(context, event, eventEffects)
+        console.info("Game context: ", structuredClone(context))
         return eventEffects
-    }
-
-    async initState(context: GameContext): Promise<EventEffects> {
-        const initAccount = context.initAccount()
-        console.info('Initialize game state with:', initAccount)
-        context.setTimestamp(0n) // Use 0 timestamp for initState
-        await this.generalPreInitState(context, initAccount)
-        return await this.customInitState(context, initAccount)
     }
 
     async generalPreInitState(context: GameContext, _initAccount: InitAccount) {
@@ -123,10 +114,9 @@ export class Handler implements IHandler {
             const addr = context.idToAddr(sender)
             context.lock(addr, randomId, ciphertextsAndDigests)
         } else if (event instanceof Join) {
-            event.players.forEach(p => context.addPlayer(p))
         } else if (event instanceof Leave) {
         } else if (event instanceof GameStart) {
-            context.status = 'running'
+            context.status = 'Running'
             context.setNodeReady(context.accessVersion)
         } else if (event instanceof SecretsReady) {
             for (let randomId of event.randomIds) {

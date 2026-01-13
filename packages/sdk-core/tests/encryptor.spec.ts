@@ -1,5 +1,5 @@
 import { assert } from 'chai';
-import { setupNodeEnv } from '../src/node'
+import { setupNodeEnv } from '../src/node_env'
 import {
   encryptAes,
   decryptAes,

@@ -1,6 +1,6 @@
 import { bcs } from '@mysten/bcs'
 import { Address, Parser } from './parser'
-import { GameBundle } from '@race-foundation/sdk-core'
+import { IGameBundle } from '@race-foundation/sdk-core'
 
 const GameBundleSchema = bcs.struct('GameBundle', {
     addr: Address, // game nft object id
@@ -10,9 +10,9 @@ const GameBundleSchema = bcs.struct('GameBundle', {
     cover: bcs.string(), // cover image url
 })
 
-export const GameBundleParser: Parser<GameBundle, typeof GameBundleSchema> = {
+export const GameBundleParser: Parser<IGameBundle, typeof GameBundleSchema> = {
     schema: GameBundleSchema,
-    transform: (input: typeof GameBundleSchema.$inferType): GameBundle => {
+    transform: (input: typeof GameBundleSchema.$inferType): IGameBundle => {
         return {
             addr: input.addr,
             uri: input.uri,

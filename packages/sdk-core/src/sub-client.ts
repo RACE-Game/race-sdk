@@ -1,6 +1,7 @@
 import { BaseClient } from './base-client'
 import { Client } from './client'
 import { IConnection, ConnectParams } from './connection'
+import { IStorage } from './storage'
 import { DecryptionCache } from './decryption-cache'
 import { IEncryptor } from './encryptor'
 import { GameContext } from './game-context'
@@ -26,6 +27,7 @@ export type SubClientCtorOpts = {
     client: Client
     transport: ITransport
     encryptor: IEncryptor
+    storage: IStorage
     profileLoader: IProfileLoader
     connection: IConnection
     gameContext: GameContext
@@ -50,7 +52,7 @@ export class SubClient extends BaseClient {
     }
 
     __connect() {
-        const settleVersion = this.__gameContext.checkpointVersion() || 0n
+        const settleVersion = this.__gameContext.versionedData.versions.settleVersion || 0n
         this.__connection.connect(new ConnectParams({ settleVersion }))
     }
 
@@ -61,7 +63,6 @@ export class SubClient extends BaseClient {
         console.group(`${this.__logPrefix}Attach to game`)
         try {
             this.__connect()
-            await this.__attachGameWithRetry()
             this.__startSubscribe()
         } catch (e) {
             console.error('Attaching game failed', e)

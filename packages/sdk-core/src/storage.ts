@@ -1,22 +1,32 @@
-import { Nft, Token } from './accounts'
+import { INft, IToken } from './accounts'
 import { EncryptorExportedKeys } from './encryptor'
 import { PlayerProfileWithPfp } from './types'
 
 const DB_KEY = 'race-protocol'
 const DB_VER = 2
 
+const STORE_TOKENS = 'tokens'
+const STORE_NFTS = 'nfts'
+const STORE_PROFILES= 'profiles'
+const STORE_SECRET = 'secret'
+
+type SecretObject = {
+    addr: string
+    secret: Uint8Array
+}
+
 export interface IStorage {
-    cacheTokens(tokens: Token[]): void
+    cacheTokens(tokens: IToken[]): void
 
-    getTokens(tokenAddrs: string[]): Promise<Array<Token | undefined>>
+    getTokens(tokenAddrs: string[]): Promise<Array<IToken | undefined>>
 
-    cacheNft(token: Nft): void
+    cacheNft(token: INft): void
 
-    getNft(nftAddr: string): Promise<Nft | undefined>
+    getNft(nftAddr: string): Promise<INft | undefined>
 
-    cacheEncryptorKeys(keys: EncryptorExportedKeys): void
+    cacheSecret(playerAddr: string, originSecret: Uint8Array): void
 
-    getEncryptorKeys(playerAddr: string): Promise<EncryptorExportedKeys | undefined>
+    getSecret(playerAddr: string): Promise<Uint8Array | undefined>
 
     cacheProfile(profile: PlayerProfileWithPfp): void
 
@@ -31,35 +41,41 @@ export class Storage implements IStorage {
 
             console.debug('Storage: creating object stores in IndexedDB')
 
-            if (!db.objectStoreNames.contains('tokens')) {
+            if (!db.objectStoreNames.contains(STORE_TOKENS)) {
                 console.debug(`Storage: creating object store "tokens" in IndexedDB`)
-                db.createObjectStore('tokens', { keyPath: 'addr' })
+                db.createObjectStore(STORE_TOKENS, { keyPath: 'addr' })
             }
 
-            if (!db.objectStoreNames.contains('nfts')) {
+            if (!db.objectStoreNames.contains(STORE_NFTS)) {
                 console.debug(`Storage: creating object store "nfts" in IndexedDB`)
-                db.createObjectStore('nfts', { keyPath: 'addr' })
+                db.createObjectStore(STORE_NFTS, { keyPath: 'addr' })
             }
 
-            if (!db.objectStoreNames.contains('profiles')) {
+            if (!db.objectStoreNames.contains(STORE_PROFILES)) {
                 console.debug(`Storage: creating object store "profiles" in IndexedDB`)
-                db.createObjectStore('profiles', { keyPath: 'addr' })
+                db.createObjectStore(STORE_PROFILES, { keyPath: 'addr' })
             }
 
-            if (!db.objectStoreNames.contains('encryptor-keys')) {
-                console.debug(`Storage: creating object store "encryptor-keys" in IndexedDB`)
-                db.createObjectStore('encryptor-keys', { keyPath: 'playerAddr' })
+            if (!db.objectStoreNames.contains(STORE_SECRET)) {
+                console.debug(`Storage: creating object store "credentials-secret" in IndexedDB`)
+                db.createObjectStore(STORE_SECRET, { keyPath: 'addr' })
+            }
+
+            if (!db.objectStoreNames.contains(STORE_SECRET)) {
+                console.debug(`Storage: creating object store "credentials" in IndexedDB`)
+                db.createObjectStore(STORE_SECRET, { keyPath: 'addr' })
             }
         }
     }
 
     cacheProfile(profile: PlayerProfileWithPfp): void {
+        console.debug('Cache profile:', profile)
         const request = indexedDB.open(DB_KEY, DB_VER)
 
         request.onsuccess = _e => {
             let db = request.result
-            let tx = db.transaction('profiles', 'readwrite')
-            let store = tx.objectStore('profiles')
+            let tx = db.transaction(STORE_PROFILES, 'readwrite')
+            let store = tx.objectStore(STORE_PROFILES)
             // Allow replace the old one
             store.put(profile)
 
@@ -78,7 +94,7 @@ export class Storage implements IStorage {
             const request = indexedDB.open(DB_KEY, DB_VER)
             request.onsuccess = _e => {
                 let db = request.result
-                let read = db.transaction('profiles', 'readonly').objectStore('profiles').get(profileAddr)
+                let read = db.transaction(STORE_PROFILES, 'readonly').objectStore(STORE_PROFILES).get(profileAddr)
                 read.onsuccess = _e => {
                     const profile = read.result as PlayerProfileWithPfp | undefined
                     resolve(profile)
@@ -90,13 +106,13 @@ export class Storage implements IStorage {
         })
     }
 
-    cacheTokens(tokens: Token[]) {
+    cacheTokens(tokens: IToken[]) {
         const request = indexedDB.open(DB_KEY, DB_VER)
 
         request.onsuccess = _e => {
             let db = request.result
-            let tx = db.transaction('tokens', 'readwrite')
-            let store = tx.objectStore('tokens')
+            let tx = db.transaction(STORE_TOKENS, 'readwrite')
+            let store = tx.objectStore(STORE_TOKENS)
             tokens.forEach(token => store.add(token))
 
             tx.oncomplete = () => {}
@@ -109,17 +125,17 @@ export class Storage implements IStorage {
         }
     }
 
-    getTokens(tokenAddrs: string[]): Promise<Array<Token | undefined>> {
+    getTokens(tokenAddrs: string[]): Promise<Array<IToken | undefined>> {
         return new Promise((resolve, _reject) => {
             const request = indexedDB.open(DB_KEY, DB_VER)
             request.onsuccess = _e => {
                 let db = request.result
-                let results: Array<Token | undefined> = []
+                let results: Array<IToken | undefined> = []
                 let count = 0
                 for (const tokenAddr of tokenAddrs) {
-                    let read = db.transaction('tokens', 'readonly').objectStore('tokens').get(tokenAddr)
+                    let read = db.transaction(STORE_TOKENS, 'readonly').objectStore(STORE_TOKENS).get(tokenAddr)
                     read.onsuccess = _e => {
-                        const token = read.result as Token | undefined
+                        const token = read.result as IToken | undefined
                         results.push(token)
                         count++
                         if (count === tokenAddrs.length) {
@@ -135,13 +151,13 @@ export class Storage implements IStorage {
         })
     }
 
-    cacheNft(nft: Nft) {
+    cacheNft(nft: INft) {
         const request = indexedDB.open(DB_KEY, DB_VER)
 
         request.onsuccess = _e => {
             let db = request.result
-            let tx = db.transaction('nfts', 'readwrite')
-            let store = tx.objectStore('nfts')
+            let tx = db.transaction(STORE_NFTS, 'readwrite')
+            let store = tx.objectStore(STORE_NFTS)
 
             store.add(nft)
 
@@ -151,14 +167,14 @@ export class Storage implements IStorage {
         }
     }
 
-    getNft(nftAddr: string): Promise<Nft | undefined> {
+    getNft(nftAddr: string): Promise<INft | undefined> {
         return new Promise((resolve, reject) => {
             const request = indexedDB.open(DB_KEY, DB_VER)
             request.onsuccess = _e => {
                 let db = request.result
-                let read = db.transaction('nfts', 'readonly').objectStore('nfts').get(nftAddr)
+                let read = db.transaction(STORE_NFTS, 'readonly').objectStore(STORE_NFTS).get(nftAddr)
                 read.onsuccess = _e => {
-                    const nft = read.result as Nft | undefined
+                    const nft = read.result as INft | undefined
                     resolve(nft)
                 }
                 read.onerror = _e => {
@@ -168,30 +184,31 @@ export class Storage implements IStorage {
         })
     }
 
-    cacheEncryptorKeys(keys: EncryptorExportedKeys) {
+    cacheSecret(addr: string, secret: Uint8Array) {
+        const obj = { addr, secret }
         const request = indexedDB.open(DB_KEY, DB_VER)
         request.onsuccess = _e => {
             let db = request.result
-            let tx = db.transaction('encryptor-keys', 'readwrite')
-            let store = tx.objectStore('encryptor-keys')
+            let tx = db.transaction(STORE_SECRET, 'readwrite')
+            let store = tx.objectStore(STORE_SECRET)
 
-            store.add(keys)
+            store.add(obj)
 
             tx.oncomplete = () => {
-                console.log('Cached encryptor keys')
+                console.log('Cached credentials secret')
             }
         }
     }
 
-    getEncryptorKeys(playerAddr: string): Promise<EncryptorExportedKeys | undefined> {
+    getSecret(addr: string): Promise<Uint8Array | undefined> {
         return new Promise((resolve, reject) => {
             const request = indexedDB.open(DB_KEY, DB_VER)
             request.onsuccess = _e => {
                 let db = request.result
-                let read = db.transaction('encryptor-keys', 'readonly').objectStore('encryptor-keys').get(playerAddr)
+                let read = db.transaction(STORE_SECRET, 'readonly').objectStore(STORE_SECRET).get(addr)
                 read.onsuccess = _e => {
-                    const keys = read.result as EncryptorExportedKeys | undefined
-                    resolve(keys)
+                    const obj = read.result as SecretObject | undefined
+                    resolve(obj?.secret)
                 }
                 read.onerror = _e => {
                     reject(read.error)

@@ -2,7 +2,6 @@ import {
     makeCustomEvent,
     ICustomEvent,
     Custom,
-    Ready,
     SecretsReady,
     Shutdown,
     ShareSecrets,
