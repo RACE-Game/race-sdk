@@ -129,7 +129,7 @@ export class AppClient extends BaseClient {
 
             const [encryptor, gameBundle, transactorAccount] = await Promise.all([
                 Encryptor.create(playerAddr, storage),
-                getGameBundle(transport, gameAccount.bundleAddr),
+                getGameBundle(transport, storage, gameAccount.bundleAddr),
                 transport.getServerAccount(transactorAddr),
             ])
 
@@ -258,7 +258,7 @@ export class AppClient extends BaseClient {
             const playerAddr = this.__playerAddr
             const connection = Connection.initialize(addr, playerAddr, this.__endpoint, this.__encryptor)
             const client = new Client(playerAddr, this.__encryptor, connection)
-            const gameBundle = await getGameBundle(this.__transport, bundleAddr)
+            const gameBundle = await getGameBundle(this.__transport, this.__storage, bundleAddr)
             const handler = await Handler.initialize(gameBundle, this.__encryptor, client, decryptionCache)
 
             const gameContext = this.__gameContext.subContext(subGame)
@@ -353,13 +353,24 @@ export class AppClient extends BaseClient {
 
 // Miscellaneous
 
-export async function getGameBundle<W>(transport: ITransport<W>, bundleAddr: string): Promise<GameBundle> {
-    let gameBundle = await transport.getGameBundle(bundleAddr)
+export async function getGameBundle<W>(transport: ITransport<W>, storage: IStorage | undefined, bundleAddr: string): Promise<GameBundle> {
+    let gameBundle = undefined
+
+    if (storage) {
+        gameBundle = await storage.getBundle(bundleAddr)
+        if (gameBundle) {
+            return gameBundle
+        }
+    }
+
+    gameBundle = await transport.getGameBundle(bundleAddr)
     console.debug('Game bundle:', gameBundle)
 
-    if (gameBundle === undefined) {
+    if (!gameBundle) {
         throw SdkError.gameBundleNotFound(bundleAddr)
     }
+
+    if (storage) storage.cacheBundle(gameBundle)
     return gameBundle
 }
 

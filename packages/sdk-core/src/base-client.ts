@@ -9,6 +9,7 @@ import {
 import { EventEffects, GameContext } from './game-context'
 import { GameContextSnapshot } from './game-context-snapshot'
 import { ITransport } from './transport'
+import { IStorage } from './storage'
 import { Handler } from './handler'
 import { IEncryptor, sha256String } from './encryptor'
 import { GameAccount } from './accounts'
@@ -77,6 +78,7 @@ export class BaseClient {
     __handler: Handler
     __client: Client
     __transport: ITransport
+    __storage: IStorage | undefined
     __connection: IConnection
     __gameContext: GameContext
     __onEvent: EventCallbackFunction

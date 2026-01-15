@@ -1,4 +1,4 @@
-import { Nft, Token } from './accounts'
+import { Nft, Token, GameBundle } from './accounts'
 import { EncryptorExportedKeys } from './encryptor'
 import { PlayerProfileWithPfp } from './types'
 
@@ -9,6 +9,10 @@ export interface IStorage {
     cacheTokens(tokens: Token[]): void
 
     getTokens(tokenAddrs: string[]): Promise<Array<Token | undefined>>
+
+    cacheBundle(gameBundle: GameBundle): void
+
+    getBundle(addr: string): Promise<GameBundle | undefined>
 
     cacheNft(token: Nft): void
 
@@ -39,6 +43,11 @@ export class Storage implements IStorage {
             if (!db.objectStoreNames.contains('nfts')) {
                 console.debug(`Storage: creating object store "nfts" in IndexedDB`)
                 db.createObjectStore('nfts', { keyPath: 'addr' })
+            }
+
+            if (!db.objectStoreNames.contains('bundles')) {
+                console.debug(`Storage: creating object store "bundles" in IndexedDB`)
+                db.createObjectStore('bundles', { keyPath: 'addr' })
             }
 
             if (!db.objectStoreNames.contains('profiles')) {
@@ -160,6 +169,39 @@ export class Storage implements IStorage {
                 read.onsuccess = _e => {
                     const nft = read.result as Nft | undefined
                     resolve(nft)
+                }
+                read.onerror = _e => {
+                    reject(read.error)
+                }
+            }
+        })
+    }
+
+    cacheBundle(bundle: GameBundle) {
+        const request = indexedDB.open(DB_KEY, DB_VER)
+
+        request.onsuccess = _e => {
+            let db = request.result
+            let tx = db.transaction('bundles', 'readwrite')
+            let store = tx.objectStore('bundles')
+
+            store.add(bundle)
+
+            tx.oncomplete = () => {
+                console.log('Cached bundle:', bundle)
+            }
+        }
+    }
+
+    getBundle(bundleAddr: string): Promise<GameBundle | undefined> {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB_KEY, DB_VER)
+            request.onsuccess = _e => {
+                let db = request.result
+                let read = db.transaction('bundles', 'readonly').objectStore('bundles').get(bundleAddr)
+                read.onsuccess = _e => {
+                    const bundle = read.result as GameBundle | undefined
+                    resolve(bundle)
                 }
                 read.onerror = _e => {
                     reject(read.error)

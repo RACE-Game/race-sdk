@@ -308,6 +308,26 @@ export class AppHelper<W> {
     }
 
     /**
+     * Cache a list of game bundles.
+     *
+     * Downloading the game bundle takes a few seconds, by caching
+     * them in advance, loading is faster.
+     */
+    async cacheBundles(bundleAddrs: string[], storage: IStorage) {
+        for (const addr of bundleAddrs) {
+            if (!await storage.getBundle(addr)) {
+                console.debug(`Cache game bundle: ${addr}`)
+                const gameBundle = await this.__transport.getGameBundle(addr)
+                if (gameBundle) {
+                    storage.cacheBundle(gameBundle)
+                } else {
+                    throw new SdkError.gameBundleNotFound(addr)
+                }
+            }
+        }
+    }
+
+    /**
      * Get a player profile.
      *
      * @param addr - The address of player profile account
