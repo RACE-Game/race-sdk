@@ -102,6 +102,7 @@ export type VoteParams = {
 }
 
 export type CreatePlayerProfileParams = {
+    secret: Uint8Array
     nick: string
     pfp?: string
 }

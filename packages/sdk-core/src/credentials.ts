@@ -24,9 +24,7 @@ export class Credentials {
     @field('u8-array')
     salt!: Uint8Array
     @field('u8-array')
-    ecIv!: Uint8Array
-    @field('u8-array')
-    rsaIv!: Uint8Array
+    iv!: Uint8Array
     @field('u8-array')
     ecPrivateEnc!: Uint8Array
     @field('u8-array')

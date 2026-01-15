@@ -50,7 +50,12 @@ export type JoinOpts = {
     addr: string
     amount: bigint
     position?: number
-    createProfileIfNeeded?: boolean
+}
+
+export type CreateProfileOpts = {
+    nick: string
+    pfp?: string
+    secret: Uint8Array
 }
 
 export type UpdateProfileOpts = {
@@ -115,8 +120,8 @@ export class AppHelper<W> {
     /**
      * Adds a new slot to an existing recipient account.
      *
-     * @param wallet - The wallet adapter to sign the transaction.
-     * @param params - The parameters for adding the slot.
+     * @param wallet - Wallet adapter to sign the transaction.
+     * @param params - Parameters for adding the slot.
      * @returns A ResponseStream that emits the status of the transaction.
      */
     addRecipientSlot(
@@ -129,17 +134,31 @@ export class AppHelper<W> {
     }
 
     /**
-     * Generate a credentials secret if it does not exist.
+     * Prepare the secret for credentials.
+     *
+     * Usually it requires the user to sign a message with the wallet if it doesn't exist.
+     * This secret is required in profile creation.
+     *
+     * @param wallet - Wallet adapter to sign the message.
+     * @param storage - Storage to save the secret.
+     * @return Secret generated
      */
-    async generateCredentials(wallet: W, storage: IStorage) {
-        const originalSecret = await this.__transport.getCredentialOriginSecret(wallet)
-        storage.cacheSecret(this.__transport.walletAddr(wallet), originalSecret)
+    async generateSecret(wallet: W, storage: IStorage): Promise<Uint8Array> {
+        const walletAddr = this.__transport.walletAddr(wallet)
+        const secret = await storage.getSecret(walletAddr)
+        if (!secret) {
+            const originalSecret = await this.__transport.getCredentialOriginSecret(wallet)
+            storage.cacheSecret(walletAddr, originalSecret)
+            return originalSecret
+        } else {
+            return secret
+        }
     }
 
     /**
      * Get the game account by game address.
      *
-     * @param addr - The address of game account
+     * @param addr - Address of game account
      * @returns An object of GameAccount or undefined when not found
      */
     async getGame(addr: string): Promise<IGameAccount | undefined> {
@@ -219,12 +238,11 @@ export class AppHelper<W> {
      */
     createProfile(
         wallet: W,
-        nick: string,
-        pfp?: string,
+        params: CreateProfileOpts,
     ): ResponseStream<CreatePlayerProfileResponse, CreatePlayerProfileError> {
         const response = new ResponseHandle<CreatePlayerProfileResponse, CreatePlayerProfileError>()
 
-        this.__transport.createPlayerProfile(wallet, { nick, pfp }, response)
+        const resp = this.__transport.createPlayerProfile(wallet, params, response)
 
         return response.stream()
     }
@@ -495,7 +513,6 @@ export class AppHelper<W> {
                 gameAddr: params.addr,
                 amount: params.amount,
                 position: params.position || 0,
-                createProfileIfNeeded: params.createProfileIfNeeded,
             },
             response
         )
