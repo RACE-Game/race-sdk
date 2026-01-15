@@ -226,8 +226,7 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
 
         let credentials
         if (!playerProfile) {
-            const originSecret = hexToBuffer(wallet.walletAddr)
-            credentials = (await generateCredentials(originSecret)).serialize()
+            credentials = (await generateCredentials(params.secret)).serialize()
         } else {
             credentials = playerProfile.credentials
         }
@@ -288,24 +287,24 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
             return response.failed('game-not-found')
         }
         const ix: JoinInstruction = { playerAddr, accessVersion: gameAccount.accessVersion, ...params }
-        if (params.createProfileIfNeeded) {
-            const playerProfile = await this.getPlayerProfile(wallet.walletAddr)
-            if (!playerProfile) {
-                console.info('No profile found, create a new one before join')
-                const originSecret = hexToBuffer(wallet.walletAddr)
-                const credentials = (await generateCredentials(originSecret)).serialize()
+        // if (params.createProfileIfNeeded) {
+        //     const playerProfile = await this.getPlayerProfile(wallet.walletAddr)
+        //     if (!playerProfile) {
+        //         console.info('No profile found, create a new one before join')
+        //         const originSecret = hexToBuffer(wallet.walletAddr)
+        //         const credentials = (await generateCredentials(originSecret)).serialize()
 
-                console.info("XXX credentials:", credentials)
+        //         console.info("XXX credentials:", credentials)
 
-                const createPlayerProfileIx: CreatePlayerProfileInstruction = {
-                    playerAddr,
-                    nick: wallet.walletAddr.substring(0, 6),
-                    pfp: undefined,
-                    credentials: [...credentials],
-                }
-                await this.sendInstruction('create_profile', createPlayerProfileIx)
-            }
-        }
+        //         const createPlayerProfileIx: CreatePlayerProfileInstruction = {
+        //             playerAddr,
+        //             nick: wallet.walletAddr.substring(0, 6),
+        //             pfp: undefined,
+        //             credentials: [...credentials],
+        //         }
+        //         await this.sendInstruction('create_profile', createPlayerProfileIx)
+        //     }
+        // }
         const signature = await this.sendInstruction('join', ix)
         response.succeed({ signature })
     }

@@ -265,8 +265,7 @@ export async function generateCredentials(originalSecret: Uint8Array): Promise<C
     const salt = crypto.getRandomValues(new Uint8Array(16))
     const derivedKey = await deriveKey(originalSecret, salt)
 
-    const ecIv = crypto.getRandomValues(new Uint8Array(12))
-    const rsaIv = crypto.getRandomValues(new Uint8Array(12))
+    const iv = crypto.getRandomValues(new Uint8Array(12))
 
     const ecPublic = await subtle().exportKey('spki', ecKeypair.publicKey)
     const rsaPublic = await subtle().exportKey('spki', rsaKeypair.publicKey)
@@ -277,7 +276,7 @@ export async function generateCredentials(originalSecret: Uint8Array): Promise<C
     const ecPrivateEnc = await subtle().encrypt(
         {
             name: 'AES-GCM',
-            iv: ecIv,
+            iv,
         },
         derivedKey,
         ecPrivate,
@@ -285,7 +284,7 @@ export async function generateCredentials(originalSecret: Uint8Array): Promise<C
     const rsaPrivateEnc = await subtle().encrypt(
         {
             name: 'AES-GCM',
-            iv: rsaIv,
+            iv,
         },
         derivedKey,
         rsaPrivate,
@@ -295,8 +294,7 @@ export async function generateCredentials(originalSecret: Uint8Array): Promise<C
         ecPublic: new Uint8Array(ecPublic),
         rsaPublic: new Uint8Array(rsaPublic),
         salt,
-        ecIv,
-        rsaIv,
+        iv,
         ecPrivateEnc: new Uint8Array(ecPrivateEnc),
         rsaPrivateEnc: new Uint8Array(rsaPrivateEnc),
     })
@@ -394,7 +392,7 @@ export class Encryptor implements IEncryptor {
         console.debug(`Import credentials for node: ${addr}`)
 
         const {
-            ecPublic, rsaPublic, salt, ecIv, rsaIv, ecPrivateEnc, rsaPrivateEnc,
+            ecPublic, rsaPublic, salt, iv, ecPrivateEnc, rsaPrivateEnc,
         } = credentials
 
         const derivedKey = await deriveKey(originalSecret, salt)
@@ -402,7 +400,7 @@ export class Encryptor implements IEncryptor {
         const ecPrivate = await subtle().decrypt(
             {
                 name: 'AES-GCM',
-                iv: ecIv,
+                iv: iv,
             },
             derivedKey,
             ecPrivateEnc,
@@ -411,7 +409,7 @@ export class Encryptor implements IEncryptor {
         const rsaPrivate = await subtle().decrypt(
             {
                 name: 'AES-GCM',
-                iv: rsaIv,
+                iv: iv,
             },
             derivedKey,
             rsaPrivateEnc,
