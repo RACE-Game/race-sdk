@@ -420,6 +420,8 @@ export class Encryptor implements IEncryptor {
         const rsaPrivateKey = await subtle().importKey('pkcs8', rsaPrivate, RSA_PARAMS, true, ['decrypt'])
         const rsaPublicKey = await subtle().importKey('spki', rsaPublic, RSA_PARAMS, true, ['encrypt'])
 
+        console.debug(`Import credentials succeed: ${addr}`)
+
         this.#privateKey = {
             rsa: { privateKey: rsaPrivateKey, publicKey: rsaPublicKey },
             ec: { privateKey: ecPrivateKey, publicKey: ecPublicKey },
@@ -427,12 +429,17 @@ export class Encryptor implements IEncryptor {
     }
 
     async importPublicCredentials(addr: string, credentials: Credentials): Promise<void> {
+        console.debug(`Import public credentials for node: ${addr}`)
+        console.debug('Credentials:', credentials)
+
         const {
             ecPublic, rsaPublic,
         } = credentials
 
         const ecPublicKey = await subtle().importKey('spki', ecPublic, EC_PARAMS, true, ['verify'])
         const rsaPublicKey = await subtle().importKey('spki', rsaPublic, RSA_PARAMS, true, ['encrypt'])
+
+        console.debug(`Import public credentials succeed: ${addr}`)
 
         this.#publicKeys.set(addr, {
             rsa: rsaPublicKey,

@@ -160,10 +160,6 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     #rpcTransports: RpcTransport[]
     #nextTransport = 0
 
-    walletAddr(wallet: SolanaWalletAdapterWallet): string {
-        return wallet.accounts[0].address
-    }
-
     constructor(chain: IdentifierString, endpoints: string[])
     constructor(chain: IdentifierString, endpoint: string)
     constructor(chain: IdentifierString, endpointOrEndponits: string | string[]) {
@@ -174,6 +170,16 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         }
 
         this.#chain = chain
+    }
+
+
+    walletAddr(wallet: SolanaWalletAdapterWallet): string {
+        return wallet.accounts[0].address
+    }
+
+    async getCredentialOriginSecret(wallet: SolanaWalletAdapterWallet): Promise<Uint8Array> {
+        // XXX return the origin secret by sign a message.
+        return Uint8Array.of(0)
     }
 
     roundRobinTransport(): RpcTransport {
@@ -444,16 +450,6 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         let profileKey: Address
         if (profileKey0 !== undefined) {
             profileKey = profileKey0
-        } else if (params.createProfileIfNeeded) {
-            const createProfile = await this._prepareCreatePlayerProfile(wallet, {
-                nick: payer.address.substring(0, 6),
-            })
-            if ('err' in createProfile) {
-                return response.failed(createProfile.err)
-            }
-            const { ixs: createProfileIxs, profileKey: pk } = createProfile.ok
-            ixs.push(...createProfileIxs)
-            profileKey = pk
         } else {
             return response.failed('profile-not-found')
         }

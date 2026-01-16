@@ -201,16 +201,6 @@ export class Connection implements IConnection {
         }
     }
 
-    // async attachGame(params: AttachGameParams): Promise<AttachResponse> {
-    //     const req = makeReqNoSig(this.target, 'attach_game', params)
-    //     const resp: any = await this.requestXhr(req)
-    //     if (resp.error !== undefined) {
-    //         return 'game-not-loaded'
-    //     } else {
-    //         return 'success'
-    //     }
-    // }
-
     async getState(): Promise<Uint8Array> {
         const req = makeReqNoSig(this.target, 'get_state', {})
         const resp: { result: string } = await this.requestXhr(req)
@@ -255,6 +245,7 @@ export class Connection implements IConnection {
 
     async exitGame(params: ExitGameParams): Promise<void> {
         const req = await this.makeReq(this.target, 'exit_game', {})
+        console.debug('exitGame:', req)
         await this.requestXhr(req)
         if (!params.keepConnection) this.disconnect()
     }
@@ -334,6 +325,7 @@ export class Connection implements IConnection {
             })
             if (resp.ok) {
                 const ret = await resp.json()
+                console.debug("Xhr response:", ret)
                 return ret
             } else {
                 throw Error('Transactor request failed:' + resp.json())

@@ -286,15 +286,14 @@ export class SuiTransport implements ITransport<WalletAdapter> {
         params: JoinParams,
         resp: ResponseHandle<JoinResponse, JoinError>
     ): Promise<void> {
-        const { gameAddr, amount, position, createProfileIfNeeded = false } = params
+        const { gameAddr, amount, position } = params
 
         const suiClient = this.suiClient
 
         const playerProfile = await this.getPlayerProfile(this.walletAddr(wallet))
 
-        if (playerProfile === undefined && createProfileIfNeeded) {
-            let res = new ResponseHandle<CreatePlayerProfileResponse, CreatePlayerProfileError>()
-            await this.createPlayerProfile(wallet, { nick: this.walletAddr(wallet).substring(0, 6) }, res)
+        if (playerProfile === undefined) {
+            throw new Error('Profile not exist')
         }
 
         // get game object for token info and object ref
