@@ -60,7 +60,6 @@ export type JoinParams = {
     gameAddr: string
     amount: bigint
     position: number
-    createProfileIfNeeded?: boolean
 }
 
 export type JoinError =

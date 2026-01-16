@@ -144,6 +144,7 @@ export class AppHelper<W> {
      * @return Secret generated
      */
     async generateSecret(wallet: W, storage: IStorage): Promise<Uint8Array> {
+        console.debug('Generate secret')
         const walletAddr = this.__transport.walletAddr(wallet)
         const secret = await storage.getSecret(walletAddr)
         if (!secret) {

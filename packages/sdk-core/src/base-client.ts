@@ -16,6 +16,7 @@ import { IEncryptor } from './encryptor'
 import { IGameAccount } from './accounts'
 import { sha256String } from './utils'
 import { Client } from './client'
+import { CLIENT_MODES } from './client-mode'
 import { Custom, GameEvent, ICustomEvent } from './events'
 import { DecryptionCache } from './decryption-cache'
 import {
@@ -40,6 +41,7 @@ import {
 import { InitAccount } from './init-account'
 import { CheckpointOnChain } from './checkpoint'
 import { SdkError } from './error'
+import { Node } from './node'
 import { IProfileLoader } from './profile-loader'
 
 const MAX_RETRIES = 3
@@ -347,54 +349,101 @@ export class BaseClient {
         }
     }
 
+    async __loadNodeCredentials(node: Node) {
+        const addr = node.addr
+
+        let credentials;
+
+        if (node.mode === 0) { // player
+            // XXX preload this profile?
+            const profile = await this.__profileLoader.getProfile(addr)
+
+            if (profile === undefined) {
+                throw new Error(`Profile account not found for ${addr}`)
+            }
+
+            console.debug('Player credentials raw:', profile.credentials)
+            credentials = Credentials.deserialize(profile.credentials)
+        } else {
+            const server = await this.__transport.getServerAccount(addr)
+
+            if (server === undefined) {
+                throw new Error(`Server account not found for ${addr}`)
+            }
+
+            console.debug('Server credentials raw:', server.credentials)
+            credentials = Credentials.deserialize(server.credentials)
+        }
+
+        this.__gameContext.addNode(node.addr, node.id, CLIENT_MODES[node.mode])
+
+        if (this.playerAddr === node.addr) {
+            const secret = await this.__storage.getSecret(addr)
+            if (!secret) {
+                throw new Error('Secret not found in storage, do `generateCredentials` before any game')
+            }
+            await this.__encryptor.importCredentials(secret, addr, credentials)
+        } else {
+            await this.__encryptor.importPublicCredentials(addr, credentials)
+        }
+    }
+
+
+    async __loadServerCredentials(addr: string, id: bigint, transactor_addr: string) {
+        const server = await this.__transport.getServerAccount(addr)
+
+        if (server === undefined) {
+            throw new Error(`Server account not found for ${addr}`)
+        }
+
+        const credentials = Credentials.deserialize(server.credentials)
+        const mode = addr === transactor_addr ? 'Transactor' : 'Validator'
+
+        this.__gameContext.addNode(addr, id, mode)
+
+        await this.__encryptor.importPublicCredentials(addr, credentials)
+
+        console.info(`Load server for ${addr}, mode: ${mode}`)
+    }
+
+    async __loadPlayerCredentials(addr: string, id: bigint) {
+        const profile = await this.__profileLoader.getProfile(addr)
+
+        if (profile === undefined) {
+            throw new Error(`Profile account not found for ${addr}`)
+        }
+
+        console.debug('Load new player profile:', profile)
+
+        const credentials = Credentials.deserialize(profile.credentials)
+        const mode = 'Player'
+
+        this.__gameContext.addNode(addr, id, mode)
+
+        if (this.playerAddr === addr) {
+            const secret = await this.__storage.getSecret(addr)
+            if (!secret) {
+                throw new Error('Secret not found in storage, do `generateCredentials` before any game')
+            }
+            await this.__encryptor.importCredentials(secret, addr, credentials)
+        } else {
+            await this.__encryptor.importPublicCredentials(addr, credentials)
+        }
+
+        console.info(`Load profile for ${addr}`)
+    }
+
     async __handleSync(frame: BroadcastFrameSync) {
         console.group(`${this.__logPrefix}Receive sync broadcast`, frame)
         try {
             await this.__profileLoader.load(frame.newPlayers.map(p => p.addr))
 
             for (const node of frame.newServers) {
-                // Query server profile to get the credentials
-                const server = await this.__transport.getServerAccount(node.addr)
-
-                if (server === undefined) {
-                    throw new Error(`Server account not found for ${node.addr}`)
-                }
-
-                const credentials = Credentials.deserialize(server.credentials)
-                const mode = node.addr === frame.transactor_addr ? 'Transactor' : 'Validator'
-
-                this.__gameContext.addNode(node.addr, node.accessVersion, mode)
-
-                if (this.playerAddr === node.addr) {
-                    const secret = await this.__storage.getSecret(node.addr)
-                    if (!secret) {
-                        throw new Error('Secret not found in storage, do `generateCredentials` before any game')
-                    }
-                    await this.__encryptor.importCredentials(secret, node.addr, credentials)
-                } else {
-                    await this.__encryptor.importPublicCredentials(node.addr, credentials)
-                }
-                console.info(`Load server for ${node.addr}, mode: ${mode}`)
-
+                await this.__loadServerCredentials(node.addr, node.accessVersion, frame.transactor_addr)
             }
 
             for (const node of frame.newPlayers) {
-                // Query player profile to get the credentials
-                const profile = await this.__profileLoader.getProfile(node.addr)
-
-                if (profile === undefined) {
-                    throw new Error(`Profile account not found for ${node.addr}`)
-                }
-
-                console.debug('Load new player profile:', profile)
-
-                const credentials = Credentials.deserialize(profile.credentials)
-                const mode = 'Player'
-
-                this.__gameContext.addNode(node.addr, node.accessVersion, mode)
-                await this.__encryptor.importPublicCredentials(node.addr, credentials)
-
-                console.info(`Load profile for ${node.addr}`)
+                await this.__loadPlayerCredentials(node.addr, node.accessVersion)
             }
 
             this.__gameContext.setAccessVersion(frame.accessVersion)
@@ -433,6 +482,17 @@ export class BaseClient {
             console.group(`${this.__logPrefix}Receive event backlogs`, frame)
             console.debug(`Game ID = ${this.__gameId}`)
 
+            const nodes: Node[] = frame.checkpointOffChain?.sharedData?.nodes || []
+
+            console.debug('Load node information:', nodes)
+
+            const nodePlayerAddrs = nodes.filter(n => n.mode === 0).map(n => n.addr)
+            await this.__profileLoader.load(nodePlayerAddrs)
+
+            for (const node of nodes) {
+                await this.__loadNodeCredentials(node)
+            }
+
             let versionedData = undefined
             if (this.__gameId !== 0) {
                 versionedData = frame.checkpointOffChain?.rootData.subData.get(this.__gameId)
@@ -465,7 +525,6 @@ export class BaseClient {
                 if (this.__onReady !== undefined) {
                     const snapshot = new GameContextSnapshot(this.__gameContext, this.__decryptionCache)
                     const state = this.__gameContext.handlerState
-                    console.log('Call onReady with', snapshot, state)
                     this.__onReady(snapshot, state)
                 } else {
                     console.warn('Callback onReady is not provided.')

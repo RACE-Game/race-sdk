@@ -9,7 +9,7 @@ const STORE_TOKENS = 'tokens'
 const STORE_BUNDLES = 'bundles'
 const STORE_NFTS = 'nfts'
 const STORE_PROFILES= 'profiles'
-const STORE_SECRET = 'secret'
+const STORE_SECRETS = 'secrets'
 
 type SecretObject = {
     addr: string
@@ -66,14 +66,9 @@ export class Storage implements IStorage {
                 db.createObjectStore(STORE_PROFILES, { keyPath: 'addr' })
             }
 
-            if (!db.objectStoreNames.contains(STORE_SECRET)) {
-                console.debug(`Storage: creating object store "credentials-secret" in IndexedDB`)
-                db.createObjectStore(STORE_SECRET, { keyPath: 'addr' })
-            }
-
-            if (!db.objectStoreNames.contains(STORE_SECRET)) {
-                console.debug(`Storage: creating object store "credentials" in IndexedDB`)
-                db.createObjectStore(STORE_SECRET, { keyPath: 'addr' })
+            if (!db.objectStoreNames.contains(STORE_SECRETS)) {
+                console.debug(`Storage: creating object store "secrets" in IndexedDB`)
+                db.createObjectStore(STORE_SECRETS, { keyPath: 'addr' })
             }
         }
     }
@@ -233,8 +228,8 @@ export class Storage implements IStorage {
         const request = indexedDB.open(DB_KEY, DB_VER)
         request.onsuccess = _e => {
             let db = request.result
-            let tx = db.transaction(STORE_SECRET, 'readwrite')
-            let store = tx.objectStore(STORE_SECRET)
+            let tx = db.transaction(STORE_SECRETS, 'readwrite')
+            let store = tx.objectStore(STORE_SECRETS)
 
             store.add(obj)
 
@@ -249,7 +244,7 @@ export class Storage implements IStorage {
             const request = indexedDB.open(DB_KEY, DB_VER)
             request.onsuccess = _e => {
                 let db = request.result
-                let read = db.transaction(STORE_SECRET, 'readonly').objectStore(STORE_SECRET).get(addr)
+                let read = db.transaction(STORE_SECRETS, 'readonly').objectStore(STORE_SECRETS).get(addr)
                 read.onsuccess = _e => {
                     const obj = read.result as SecretObject | undefined
                     resolve(obj?.secret)
