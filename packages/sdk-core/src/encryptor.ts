@@ -497,12 +497,7 @@ export class Encryptor implements IEncryptor {
         const timestamp = BigInt(new Date().getTime())
         const buf = this.makeSignMessage(message, timestamp)
 
-        console.info("XXX, message:", buf)
-        console.info("XXX, timestamp:", timestamp)
-        console.info("XXX, public keys:", this.#publicKeys)
-
         const signature = await this.signRaw(buf)
-        console.info("XXX, signature:", signature)
         return new Signature({
             timestamp,
             signer,

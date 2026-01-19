@@ -144,7 +144,6 @@ export class AppHelper<W> {
      * @return Secret generated
      */
     async generateSecret(wallet: W, storage: IStorage): Promise<Uint8Array> {
-        console.debug('Generate secret')
         const walletAddr = this.__transport.walletAddr(wallet)
         const secret = await storage.getSecret(walletAddr)
         if (!secret) {
@@ -242,6 +241,7 @@ export class AppHelper<W> {
         params: CreateProfileOpts,
     ): ResponseStream<CreatePlayerProfileResponse, CreatePlayerProfileError> {
         const response = new ResponseHandle<CreatePlayerProfileResponse, CreatePlayerProfileError>()
+
 
         const resp = this.__transport.createPlayerProfile(wallet, params, response)
 

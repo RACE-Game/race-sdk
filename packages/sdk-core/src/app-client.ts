@@ -341,25 +341,6 @@ export class AppClient extends BaseClient {
         return this.__profileLoader.getProfile(addr)
     }
 
-    /**
-     * Return if current player is in game.
-     */
-    isInGame(): boolean {
-        // XXX Check nodes, field 'players' has been removed
-        //
-        // try {
-        //     const playerId = this.addrToId(this.__playerAddr)
-        //     if (this.__gameContext.players.find(p => p.id === playerId) !== undefined) {
-        //         return true
-        //     }
-        //     return false
-        // } catch (e) {
-        //     return false
-        // }
-
-        return true
-    }
-
     makeSubGameAddr(gameId: number): string {
         return `${this.__gameAddr}:${gameId}`
     }

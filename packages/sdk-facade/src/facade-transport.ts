@@ -219,6 +219,8 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
         params: CreatePlayerProfileParams,
         response: ResponseHandle<CreatePlayerProfileResponse, CreatePlayerProfileError>
     ): Promise<void> {
+        console.log('params:', params)
+
         const playerAddr = wallet.walletAddr
 
         // Fetch the old one
@@ -288,23 +290,6 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
         }
         const ix: JoinInstruction = { playerAddr, accessVersion: gameAccount.accessVersion, ...params }
 
-        // Create profile automatically
-        const playerProfile = await this.getPlayerProfile(wallet.walletAddr)
-        if (!playerProfile) {
-            console.info('No profile found, create a new one before join')
-            const originSecret = hexToBuffer(wallet.walletAddr)
-            const credentials = (await generateCredentials(originSecret)).serialize()
-
-            console.info("XXX credentials:", credentials)
-
-            const createPlayerProfileIx: CreatePlayerProfileInstruction = {
-                playerAddr,
-                nick: wallet.walletAddr.substring(0, 6),
-                pfp: undefined,
-                credentials: [...credentials],
-            }
-            await this.sendInstruction('create_profile', createPlayerProfileIx)
-        }
         const signature = await this.sendInstruction('join', ix)
 
         response.succeed({ signature })
