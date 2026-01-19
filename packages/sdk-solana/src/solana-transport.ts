@@ -128,6 +128,7 @@ import { createDasRpc, MetaplexDASApi, Asset } from './metaplex'
 import type { SolanaWalletAdapterWallet } from '@solana/wallet-standard'
 import { IdentifierString } from '@wallet-standard/base'
 
+const SECRET_MESSAGE = `These signatures will be used to generate encrypted keys within the game.`
 const SolanaSignAndSendTransaction = 'solana:signAndSendTransaction'
 const SolanaSignMessage = 'solana:signMessage'
 const MAX_CONFIRM_TIMES = 32
@@ -178,6 +179,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     }
 
     async getCredentialOriginSecret(wallet: SolanaWalletAdapterWallet): Promise<Uint8Array> {
+
         // XXX return the origin secret by sign a message.
         return Uint8Array.of(0)
     }
