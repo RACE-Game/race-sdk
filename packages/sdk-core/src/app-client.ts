@@ -244,6 +244,7 @@ export class AppClient extends BaseClient {
             console.group(`SubClient initialization, id: ${gameId}`)
             console.info('Versioned data:', this.__gameContext.versionedData.getSubData(gameId))
 
+
             const subGame = this.__gameContext.findSubGame(gameId)
 
             if (subGame === undefined) {
@@ -257,18 +258,27 @@ export class AppClient extends BaseClient {
 
             const decryptionCache = new DecryptionCache()
             const playerAddr = this.__playerAddr
+
+
+            const gameBundle = await getGameBundle(this.__transport, this.__storage, bundleAddr)
             const connection = Connection.initialize(addr, playerAddr, this.__endpoint, this.__encryptor)
             const client = new Client(playerAddr, this.__encryptor, connection)
-            const gameBundle = await getGameBundle(this.__transport, this.__storage, bundleAddr)
-            const handler = await Handler.initialize(gameBundle, this.__encryptor, client, decryptionCache)
+
+            const [handler, checkpointOffChain] = await Promise.all([
+                Handler.initialize(gameBundle, this.__encryptor, client, decryptionCache),
+                connection.getLatestCheckpoint(),
+            ])
+
+            if (checkpointOffChain === undefined) {
+                throw new Error(`Cannot get checkpoint from transactor for subgame: ${subGame.gameId}`)
+            }
 
             /// XXX create a context for subgame
             /// If the context is created from versioned data, we just need a versioned data for sub game
 
-            const subVersionedData = this.__gameContext.versionedData.subData.get(gameId)
-            if (subVersionedData === undefined) {
-                throw new Error('Sub game does not exist')
-            }
+            const subVersionedData = checkpointOffChain.rootData;
+
+            console.log(subVersionedData)
 
             const sharedData = {
                 balances: this.__gameContext.balances,

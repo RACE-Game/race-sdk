@@ -89,7 +89,9 @@ export class ProfileLoader implements IProfileLoader {
                         const profileWithPfp = { pfp: nft, nick: profile.nick, addr: profile.addr, credentials: profile.credentials }
                         this.__profiles.set(profile.addr, profileWithPfp)
                         this.notify(profileWithPfp)
-                        if (this.__storage) {
+
+                        // Cache the profile if we are not on Facade.
+                        if (this.__storage && this.__transport.chain !== 'facade') {
                             this.__storage.cacheProfile(profileWithPfp)
                         }
                     }

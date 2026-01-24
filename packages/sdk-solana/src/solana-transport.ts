@@ -173,6 +173,9 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         this.#chain = chain
     }
 
+    get chain(): string {
+        return 'solana'
+    }
 
     walletAddr(wallet: SolanaWalletAdapterWallet): string {
         return wallet.accounts[0].address

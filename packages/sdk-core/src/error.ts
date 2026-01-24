@@ -138,4 +138,8 @@ export class SdkError extends Error {
     static malformedCheckpoint() {
         return new SdkError('Malformed checkpoint')
     }
+
+    static missingCheckpoint() {
+        return new SdkError('Missing checkpoint')
+    }
 }

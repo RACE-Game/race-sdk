@@ -7,6 +7,7 @@ import { GameSpec } from './game-spec'
 import { ClientMode } from './client-mode'
 import { INode, INodeStatus } from './node'
 import { Credentials } from './credentials'
+import { EntryTypeDisabled } from './entry-type'
 import {
     ActionTimeout,
     Answer,
@@ -357,12 +358,15 @@ export class GameContext {
             }
         }
 
-        // XXX do we manage the sub game?
-        // we already have that info in versinoed data's sub data.
-
-        // for (const subGame of effect.launchSubGames) {
-        //     this.addSubGame(subGame)
-        // }
+        for (const launchSubGame of effect.launchSubGames) {
+            this.subGames.push(new GameSpec({
+                gameAddr: this.gameSpec.gameAddr,
+                gameId: launchSubGame.gameId,
+                bundleAddr: launchSubGame.bundleAddr,
+                maxPlayers: launchSubGame.initAccount.maxPlayers,
+                entryType: new EntryTypeDisabled({}),
+            }))
+        }
 
         return {
             checkpoint: effect.isCheckpoint ? effect.handlerState : undefined,

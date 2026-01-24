@@ -48,6 +48,19 @@ export class CheckpointOffChain {
     }
 }
 
+export class CheckpointOffChainOrNull {
+    @field(option(struct(CheckpointOffChain)))
+    checkpoint!: CheckpointOffChain | undefined
+
+    constructor(fields: any) {
+        Object.assign(this, fields)
+    }
+
+    static deserialize(raw: Uint8Array): CheckpointOffChainOrNull {
+        return deserialize(CheckpointOffChainOrNull, raw)
+    }
+}
+
 export class CheckpointOffChainList {
     @field(array(option(struct(CheckpointOffChain))))
     checkpoints!: (CheckpointOffChain | undefined)[]

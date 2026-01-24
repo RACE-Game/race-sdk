@@ -102,6 +102,10 @@ export class SuiTransport implements ITransport<WalletAdapter> {
         this.packageId = packageId
     }
 
+    get chain(): string {
+        return 'sui'
+    }
+
     walletAddr(wallet: WalletAdapter): string {
         return wallet.accounts[0].address
     }

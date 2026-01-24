@@ -413,8 +413,6 @@ export class BaseClient {
             throw new Error(`Profile account not found for ${addr}`)
         }
 
-        console.debug('Load new player profile:', profile)
-
         const credentials = Credentials.deserialize(profile.credentials)
         const mode = 'Player'
 
@@ -493,16 +491,19 @@ export class BaseClient {
                 await this.__loadNodeCredentials(node)
             }
 
-            let versionedData = undefined
-            if (this.__gameId !== 0) {
-                versionedData = frame.checkpointOffChain?.rootData.subData.get(this.__gameId)
-            } else {
-                versionedData = frame.checkpointOffChain?.rootData
-            }
+            // TODO, remove the unnecessary part of the message.
+            //
+            // The versioned data for current game is always the rootData.
+
+            console.log(frame)
+            console.log(frame.checkpointOffChain)
+            console.log(frame.checkpointOffChain?.rootData)
+
+            let versionedData = frame.checkpointOffChain?.rootData
 
             if (versionedData === undefined) {
                 console.warn('Invalid versioned data', versionedData)
-                throw new Error('Missing checkpoint, mostly a bug')
+                throw SdkError.missingCheckpoint()
             }
 
             this.__gameContext.versionedData = versionedData
