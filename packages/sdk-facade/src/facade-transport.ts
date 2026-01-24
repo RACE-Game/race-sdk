@@ -136,6 +136,10 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
         this.#url = url
     }
 
+    get chain(): string {
+        return 'facade'
+    }
+
     walletAddr(wallet: FacadeWallet): string {
         return wallet.walletAddr
     }

@@ -3,7 +3,7 @@ import { GameEvent } from './events'
 import { deserialize, enums, field, serialize, struct } from '@race-foundation/borsh'
 import { arrayBufferToBase64, base64ToUint8Array } from './utils'
 import { BroadcastFrame } from './broadcast-frames'
-import { CheckpointOffChain, CheckpointOffChainList } from './checkpoint'
+import { CheckpointOffChain, CheckpointOffChainOrNull, CheckpointOffChainList } from './checkpoint'
 
 let __WebSocket_impl: (new (url: string | URL) => WebSocket) | undefined = undefined
 
@@ -31,6 +31,7 @@ type Method =
     | 'get_state'
     | 'ping'
     | 'get_checkpoint'
+    | 'get_latest_checkpoint'
     | 'get_latest_checkpoints'
 
 interface IAttachGameParams {
@@ -205,6 +206,13 @@ export class Connection implements IConnection {
         const req = makeReqNoSig(this.target, 'get_state', {})
         const resp: { result: string } = await this.requestXhr(req)
         return Uint8Array.from(JSON.parse(resp.result))
+    }
+
+    async getLatestCheckpoint(): Promise<CheckpointOffChain | undefined> {
+        const req = makeReqNoSig(this.target, 'get_latest_checkpoint', {})
+        const resp: { result: number[] | null } = await this.requestXhr(req)
+        if (!resp.result) return undefined
+        return CheckpointOffChainOrNull.deserialize(Uint8Array.from(resp.result)).checkpoint
     }
 
     async getCheckpoint(params: GetCheckpointParams): Promise<CheckpointOffChain | undefined> {
@@ -382,7 +390,7 @@ function makeReqAddrs(method: Method, addrs: string[]): string {
 
 export async function getLatestCheckpoints(
     transactorEndpoint: string,
-    addrs: string[]
+    addrs: string[],
 ): Promise<(CheckpointOffChain | undefined)[]> {
     const req = makeReqAddrs('get_latest_checkpoints', addrs)
     try {

@@ -139,8 +139,6 @@ export class LaunchSubGame {
     gameId!: number
     @field('string')
     bundleAddr!: string
-    @field('u16')
-    maxPlayers!: number
     @field(struct(InitAccount))
     initAccount!: InitAccount
     constructor(fields: Fields<LaunchSubGame>) {

@@ -218,6 +218,8 @@ export type AddRecipientSlotError =
 export interface ITransport<W = never> {
     walletAddr(wallet: W): string
 
+    get chain(): string
+
     createGameAccount(
         wallet: W,
         params: CreateGameAccountParams,
