@@ -1,5 +1,6 @@
 import { GameAccount, Nft, Token, TokenBalance, RecipientAccount } from './accounts'
 import { CheckpointOffChain } from './checkpoint'
+import { SdkError } from './error'
 import { ResponseHandle, ResponseStream } from './response'
 import {
     AttachBonusError,
@@ -321,7 +322,7 @@ export class AppHelper<W> {
                 if (gameBundle) {
                     storage.cacheBundle(gameBundle)
                 } else {
-                    throw new SdkError.gameBundleNotFound(addr)
+                    throw SdkError.gameBundleNotFound(addr)
                 }
             }
         }
