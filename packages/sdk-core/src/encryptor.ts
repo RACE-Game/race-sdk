@@ -177,7 +177,7 @@ export async function generateRsaKeypair(): Promise<CryptoKeyPair> {
     return await subtle().generateKey(
         {
             name: 'RSA-OAEP',
-            modulusLength: 1024,
+            modulusLength: 512,
             publicExponent: publicExponent,
             hash: 'SHA-256',
         },

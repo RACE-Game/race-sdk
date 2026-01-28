@@ -182,9 +182,8 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     }
 
     async getCredentialOriginSecret(wallet: SolanaWalletAdapterWallet): Promise<Uint8Array> {
-
-        // XXX return the origin secret by sign a message.
-        return Uint8Array.of(0)
+        const originSecret = await this.signMessage(wallet, CREDENTIALS_MESSAGE)
+        return originSecret;
     }
 
     roundRobinTransport(): RpcTransport {
@@ -832,26 +831,25 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         const payer = this.useTransactionSendingSigner(wallet)
 
         let ixs = []
-        const { nick, pfp } = params
+        const { nick, pfp, secret } = params
         if (nick.length > 16) {
             return { err: 'invalid-nick' }
         }
         console.info('Payer Public Key:', payer.address)
+        console.info('XXX secret:', secret)
 
         const profileKey = await this._getPlayerProfileAddress(payer.address)
 
         console.info('Player profile public key: ', profileKey)
         const profileAccountData = await this._getFinalizedBase64AccountData(profileKey)
 
-
         let credentials;
         if (profileAccountData && profileAccountData[0] == PROFILE_VERSION) {
-            // First time
+            // Not the first time
             const state = PlayerState.deserialize(profileAccountData)
             credentials = state.credentials;
         } else {
-            const originSecret = await this.signMessage(wallet, CREDENTIALS_MESSAGE)
-            credentials = (await generateCredentials(originSecret)).serialize()
+            credentials = (await generateCredentials(secret)).serialize()
 
             const lamports = await this.rpc().getMinimumBalanceForRentExemption(PROFILE_ACCOUNT_LEN).send()
             const ix = getCreateAccountWithSeedInstruction({
@@ -1822,8 +1820,12 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
 
     // Ref: https://github.com/anza-xyz/wallet-standard/blob/master/packages/core/features/src/signMessage.ts
     async signMessage(wallet: SolanaWalletAdapterWallet, message: Uint8Array): Promise<Uint8Array> {
+        const account = wallet.accounts[0]
+        console.info('XXX Account:', account)
+        console.info('XXX Message:', message)
+        console.info('XXX wallet.features[SolanaSignMessage]', wallet.features[SolanaSignMessage])
         const resps = await wallet.features[SolanaSignMessage]!.signMessage({
-            account: wallet.accounts[0],
+            account,
             message,
         })
         return resps[0].signedMessage
