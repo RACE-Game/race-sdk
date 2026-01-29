@@ -77,17 +77,17 @@ const EntryTypeParser: Parser<IEntryType, typeof EntryTypeSchema> = {
             return {
                 minDeposit: BigInt(input.Cash.min_deposit),
                 maxDeposit: BigInt(input.Cash.max_deposit),
-                kind: 'Cash',
+                kind: 'cash',
             }
         } else if (input.$kind === 'Ticket') {
             return {
                 amount: BigInt(input.Ticket.amount),
-                kind: 'Ticket',
+                kind: 'ticket',
             }
         } else if (input.$kind == 'Gating') {
             return {
                 collection: input.Gating.collection,
-                kind: 'Gating',
+                kind: 'gating',
             }
         } else {
             return { kind: 'Disabled' }

@@ -1,7 +1,7 @@
 import { variant, field } from '@race-foundation/borsh'
 import { IKind } from './types'
 
-export type EntryTypeKind = 'Cash' | 'Ticket' | 'Gating' | 'Disabled'
+export type EntryTypeKind = 'cash' | 'ticket' | 'gating' | 'disabled'
 
 // Unified interfaces.
 
@@ -10,17 +10,17 @@ export type IEntryTypeKind<T extends EntryTypeKind> = IKind<T>
 export type IEntryTypeCash = {
     readonly minDeposit: bigint
     readonly maxDeposit: bigint
-} & IEntryTypeKind<'Cash'>
+} & IEntryTypeKind<'cash'>
 
 export type IEntryTypeTicket = {
     readonly amount: bigint
-} & IEntryTypeKind<'Ticket'>
+} & IEntryTypeKind<'ticket'>
 
 export type IEntryTypeGating = {
     readonly collection: string
-} & IEntryTypeKind<'Gating'>
+} & IEntryTypeKind<'gating'>
 
-export type IEntryTypeDisabled = {} & IEntryTypeKind<'Disabled'>
+export type IEntryTypeDisabled = {} & IEntryTypeKind<'disabled'>
 
 export type IEntryType = IEntryTypeCash | IEntryTypeTicket | IEntryTypeGating | IEntryTypeDisabled
 
@@ -32,16 +32,16 @@ export interface IHasEntryTypeKind {
 
 export abstract class AEntryType implements IHasEntryTypeKind {
     kind(): EntryTypeKind {
-        return 'Disabled'
+        return 'disabled'
     }
 
     static from(entryType: IEntryType): AEntryType {
         switch (entryType.kind) {
-            case 'Cash':
+            case 'cash':
                 return new EntryTypeCash(entryType)
-            case 'Ticket':
+            case 'ticket':
                 return new EntryTypeTicket(entryType)
-            case 'Gating':
+            case 'gating':
                 return new EntryTypeGating(entryType)
             default:
                 return new EntryTypeDisabled({})
@@ -51,23 +51,23 @@ export abstract class AEntryType implements IHasEntryTypeKind {
     generalize(): IEntryType {
         if (this instanceof EntryTypeCash) {
             return {
-                kind: 'Cash',
+                kind: 'cash',
                 minDeposit: this.minDeposit,
                 maxDeposit: this.maxDeposit,
             }
         } else if (this instanceof EntryTypeTicket) {
             return {
-                kind: 'Ticket',
+                kind: 'ticket',
                 amount: this.amount,
             }
         } else if (this instanceof EntryTypeGating) {
             return {
-                kind: 'Gating',
+                kind: 'gating',
                 collection: this.collection,
             }
         } else {
             return {
-                kind: 'Disabled',
+                kind: 'disabled',
             }
         }
     }
@@ -85,7 +85,7 @@ export class EntryTypeCash extends AEntryType implements IHasEntryTypeKind {
         Object.setPrototypeOf(this, EntryTypeCash.prototype)
     }
     kind(): EntryTypeKind {
-        return 'Cash'
+        return 'cash'
     }
 }
 
@@ -99,7 +99,7 @@ export class EntryTypeTicket extends AEntryType implements IHasEntryTypeKind {
         Object.setPrototypeOf(this, EntryTypeTicket.prototype)
     }
     kind(): EntryTypeKind {
-        return 'Ticket'
+        return 'ticket'
     }
 }
 
@@ -113,7 +113,7 @@ export class EntryTypeGating extends AEntryType implements IHasEntryTypeKind {
         Object.setPrototypeOf(this, EntryTypeGating.prototype)
     }
     kind(): EntryTypeKind {
-        return 'Gating'
+        return 'gating'
     }
 }
 
@@ -124,6 +124,6 @@ export class EntryTypeDisabled extends AEntryType implements IHasEntryTypeKind {
         Object.setPrototypeOf(this, EntryTypeDisabled.prototype)
     }
     kind(): EntryTypeKind {
-        return 'Disabled'
+        return 'disabled'
     }
 }

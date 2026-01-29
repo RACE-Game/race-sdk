@@ -139,7 +139,7 @@ export class SuiTransport implements ITransport<WalletAdapter> {
         let entry_type_args: any = []
         const kind = params.entryType.kind
         switch (kind) {
-            case 'Cash':
+            case 'cash':
                 if (params.entryType.maxDeposit < params.entryType.minDeposit || params.entryType.minDeposit < 0) {
                     return resp.failed('invalid-depsoit-range')
                 }
@@ -149,11 +149,11 @@ export class SuiTransport implements ITransport<WalletAdapter> {
                     transaction.pure.u64(params.entryType.maxDeposit),
                 ]
                 break
-            case 'Ticket':
+            case 'ticket':
                 entryFunction = 'create_ticket_entry'
                 entry_type_args = [transaction.pure.u64(params.entryType.amount)]
                 break
-            case 'Gating':
+            case 'gating':
                 entryFunction = 'create_gating_entry'
                 entry_type_args = [transaction.pure.string(params.entryType.collection)]
                 break

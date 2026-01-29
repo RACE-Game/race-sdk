@@ -177,7 +177,7 @@ export class AppHelper<W> {
             throw new Error('Invalid title')
         }
 
-        if (params.entryType.kind === 'Cash') {
+        if (params.entryType.kind === 'cash') {
             const entryType = params.entryType
             if (entryType.minDeposit <= 0) {
                 throw new Error('Invalid minDeposit')
@@ -185,7 +185,7 @@ export class AppHelper<W> {
             if (entryType.maxDeposit < entryType.minDeposit) {
                 throw new Error('Invalid maxDeposit')
             }
-        } else if (params.entryType.kind === 'Ticket') {
+        } else if (params.entryType.kind === 'ticket') {
             const entryType = params.entryType
             if (entryType.amount < 0) {
                 throw new Error('Invalid ticket price')

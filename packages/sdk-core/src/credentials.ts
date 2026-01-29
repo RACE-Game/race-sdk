@@ -2,7 +2,8 @@ import { field, serialize, deserialize } from '@race-foundation/borsh'
 import { Fields } from './types'
 import { hexToBuffer } from './utils'
 
-export const CREDENTIALS_MESSAGE = hexToBuffer('This message is required as credentials for gameplay.')
+export const RAW_CREDENTIALS_MESSAGE = 'This message is required as credentials for gameplay.'
+export const CREDENTIALS_MESSAGE = new TextEncoder().encode(RAW_CREDENTIALS_MESSAGE)
 
 /**
  * The credentials for game play.

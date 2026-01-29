@@ -43,7 +43,7 @@ export class RecipientSlotOwnerAssigned extends RecipientSlotOwner {
     }
 }
 
-export type EntryTypeKind = 'Invalid' | 'Cash' | 'Ticket' | 'Gating' | 'Disabled'
+export type EntryTypeKind = 'invalid' | 'cash' | 'ticket' | 'gating' | 'disabled'
 
 export interface IEntryTypeKind {
     kind(): EntryTypeKind
@@ -51,28 +51,28 @@ export interface IEntryTypeKind {
 
 export abstract class EntryType implements IEntryTypeKind {
     kind(): EntryTypeKind {
-        return 'Invalid'
+        return 'invalid'
     }
     generalize(): RaceCore.IEntryType {
         if (this instanceof EntryTypeCash) {
             return {
-                kind: 'Cash',
+                kind: 'cash',
                 minDeposit: this.minDeposit,
                 maxDeposit: this.maxDeposit,
             }
         } else if (this instanceof EntryTypeTicket) {
             return {
-                kind: 'Ticket',
+                kind: 'ticket',
                 amount: this.amount,
             }
         } else if (this instanceof EntryTypeGating) {
             return {
-                kind: 'Gating',
+                kind: 'gating',
                 collection: this.collection,
             }
         } else {
             return {
-                kind: 'Disabled',
+                kind: 'disabled',
             }
         }
     }
@@ -90,7 +90,7 @@ export class EntryTypeCash extends EntryType implements IEntryTypeKind {
         Object.setPrototypeOf(this, EntryTypeCash.prototype)
     }
     kind(): EntryTypeKind {
-        return 'Cash'
+        return 'cash'
     }
 }
 
@@ -104,7 +104,7 @@ export class EntryTypeTicket extends EntryType implements IEntryTypeKind {
         Object.setPrototypeOf(this, EntryTypeTicket.prototype)
     }
     kind(): EntryTypeKind {
-        return 'Ticket'
+        return 'ticket'
     }
 }
 
@@ -118,7 +118,7 @@ export class EntryTypeGating extends EntryType implements IEntryTypeKind {
         Object.setPrototypeOf(this, EntryTypeGating.prototype)
     }
     kind(): EntryTypeKind {
-        return 'Gating'
+        return 'gating'
     }
 }
 
@@ -129,7 +129,7 @@ export class EntryTypeDisabled extends EntryType implements IEntryTypeKind {
         Object.setPrototypeOf(this, EntryTypeDisabled.prototype)
     }
     kind(): EntryTypeKind {
-        return 'Disabled'
+        return 'disabled'
     }
 }
 
