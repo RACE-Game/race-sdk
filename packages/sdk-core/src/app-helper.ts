@@ -423,7 +423,9 @@ export class AppHelper<W> {
             }
             const cachedAddrs = tokens.map(token => token.addr)
             const addrsToFetch = tokenAddrs.filter(addr => !cachedAddrs.includes(addr))
+
             const fetchedTokens = await this.__transport.listTokens(addrsToFetch)
+
             storage.cacheTokens(fetchedTokens)
             tokens.push(...fetchedTokens)
             return tokens

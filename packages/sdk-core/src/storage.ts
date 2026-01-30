@@ -3,7 +3,7 @@ import { EncryptorExportedKeys } from './encryptor'
 import { PlayerProfileWithPfp } from './types'
 
 const DB_KEY = 'race-protocol'
-const DB_VER = 3
+const DB_VER = 5
 
 const STORE_TOKENS = 'tokens'
 const STORE_BUNDLES = 'bundles'
