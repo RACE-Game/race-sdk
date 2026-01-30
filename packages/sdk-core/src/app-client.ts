@@ -128,8 +128,9 @@ export class AppClient extends BaseClient {
 
             let token: IToken | undefined = await transport.getToken(gameAccount.tokenAddr)
 
-            const [encryptor, gameBundle, transactorAccount] = await Promise.all([
-                Encryptor.create(playerAddr, storage),
+            const encryptor = new Encryptor()
+
+            const [gameBundle, transactorAccount] = await Promise.all([
                 getGameBundle(transport, storage, gameAccount.bundleAddr),
                 transport.getServerAccount(transactorAddr),
             ])
@@ -358,7 +359,7 @@ export class AppClient extends BaseClient {
 
 // Miscellaneous
 
-export async function getGameBundle<W>(transport: ITransport<W>, storage: IStorage | undefined, bundleAddr: string): Promise<GameBundle> {
+export async function getGameBundle<W>(transport: ITransport<W>, storage: IStorage | undefined, bundleAddr: string): Promise<IGameBundle> {
     let gameBundle = undefined
 
     if (storage) {

@@ -83,7 +83,6 @@ export class BaseClient {
     __handler: Handler
     __client: Client
     __transport: ITransport
-    __storage: IStorage | undefined
     __connection: IConnection
     __storage: IStorage
     __gameContext: GameContext

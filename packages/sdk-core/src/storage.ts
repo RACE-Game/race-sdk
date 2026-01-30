@@ -1,4 +1,4 @@
-import { INft, IToken, GameBundle } from './accounts'
+import { INft, IToken, IGameBundle } from './accounts'
 import { EncryptorExportedKeys } from './encryptor'
 import { PlayerProfileWithPfp } from './types'
 
@@ -21,9 +21,9 @@ export interface IStorage {
 
     getTokens(tokenAddrs: string[]): Promise<Array<IToken | undefined>>
 
-    cacheBundle(gameBundle: GameBundle): void
+    cacheBundle(gameBundle: IGameBundle): void
 
-    getBundle(addr: string): Promise<GameBundle | undefined>
+    getBundle(addr: string): Promise<IGameBundle | undefined>
 
     cacheNft(token: INft): void
 
@@ -44,8 +44,6 @@ export class Storage implements IStorage {
         request.onupgradeneeded = (_e: IDBVersionChangeEvent) => {
             const db = request.result
 
-            console.debug('Storage: creating object stores in IndexedDB')
-
             if (!db.objectStoreNames.contains(STORE_TOKENS)) {
                 console.debug(`Storage: creating object store "tokens" in IndexedDB`)
                 db.createObjectStore(STORE_TOKENS, { keyPath: 'addr' })
@@ -58,7 +56,7 @@ export class Storage implements IStorage {
 
             if (!db.objectStoreNames.contains(STORE_BUNDLES)) {
                 console.debug(`Storage: creating object store "bundles" in IndexedDB`)
-                db.createObjectStore('bundles', { keyPath: 'addr' })
+                db.createObjectStore(STORE_BUNDLES, { keyPath: 'addr' })
             }
 
             if (!db.objectStoreNames.contains(STORE_PROFILES)) {
@@ -74,7 +72,6 @@ export class Storage implements IStorage {
     }
 
     cacheProfile(profile: PlayerProfileWithPfp): void {
-        console.debug('Cache profile:', profile)
         const request = indexedDB.open(DB_KEY, DB_VER)
 
         request.onsuccess = _e => {
@@ -190,13 +187,13 @@ export class Storage implements IStorage {
     }
 
 
-    cacheBundle(bundle: GameBundle) {
+    cacheBundle(bundle: IGameBundle) {
         const request = indexedDB.open(DB_KEY, DB_VER)
 
         request.onsuccess = _e => {
             let db = request.result
-            let tx = db.transaction('bundles', 'readwrite')
-            let store = tx.objectStore('bundles')
+            let tx = db.transaction(STORE_BUNDLES, 'readwrite')
+            let store = tx.objectStore(STORE_BUNDLES)
 
             store.add(bundle)
 
@@ -206,14 +203,14 @@ export class Storage implements IStorage {
         }
     }
 
-    getBundle(bundleAddr: string): Promise<GameBundle | undefined> {
+    getBundle(bundleAddr: string): Promise<IGameBundle | undefined> {
         return new Promise((resolve, reject) => {
             const request = indexedDB.open(DB_KEY, DB_VER)
             request.onsuccess = _e => {
                 let db = request.result
-                let read = db.transaction('bundles', 'readonly').objectStore('bundles').get(bundleAddr)
+                let read = db.transaction(STORE_BUNDLES, 'readonly').objectStore(STORE_BUNDLES).get(bundleAddr)
                 read.onsuccess = _e => {
-                    const bundle = read.result as GameBundle | undefined
+                    const bundle = read.result as IGameBundle | undefined
                     resolve(bundle)
                 }
                 read.onerror = _e => {
