@@ -66,7 +66,8 @@ export class ProfileLoader implements IProfileLoader {
             if (this.__storage) {
                 for (const addr of addrsToLoad) {
                     const profile = await this.__storage.getProfile(addr)
-                    if (profile) {
+                    // Make sure that credentials are available
+                    if (profile && profile.credentials) {
                         this.__profiles.set(addr, profile)
                         this.notify(profile)
                     } else {

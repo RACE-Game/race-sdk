@@ -361,7 +361,7 @@ export class BaseClient {
                 throw new Error(`Profile account not found for ${addr}`)
             }
 
-            console.debug('Player credentials raw:', profile.credentials)
+            console.debug(`Player ${addr} credentials:`, profile.credentials)
             credentials = Credentials.deserialize(profile.credentials)
         } else {
             const server = await this.__transport.getServerAccount(addr)
@@ -370,7 +370,7 @@ export class BaseClient {
                 throw new Error(`Server account not found for ${addr}`)
             }
 
-            console.debug('Server credentials raw:', server.credentials)
+            console.debug(`Server ${addr} credentials:`, server.credentials)
             credentials = Credentials.deserialize(server.credentials)
         }
 
