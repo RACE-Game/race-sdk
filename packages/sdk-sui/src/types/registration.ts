@@ -1,6 +1,6 @@
 import { bcs } from '@mysten/bcs'
 import { Address, Parser } from './parser'
-import { RegistrationAccount } from '@race-foundation/sdk-core'
+import { IRegistrationAccount } from '@race-foundation/sdk-core'
 
 // Define the GameRegistrationSchema to use in RegistrationAccountSchema
 const GameRegistrationSchema = bcs.struct('GameRegistration', {
@@ -20,9 +20,9 @@ const RegistrationAccountSchema = bcs.struct('RegistrationAccount', {
 })
 
 // Create the parser for RegistrationAccount
-export const RegistrationAccountParser: Parser<RegistrationAccount, typeof RegistrationAccountSchema> = {
+export const RegistrationAccountParser: Parser<IRegistrationAccount, typeof RegistrationAccountSchema> = {
     schema: RegistrationAccountSchema,
-    transform: (input: typeof RegistrationAccountSchema.$inferType): RegistrationAccount => {
+    transform: (input: typeof RegistrationAccountSchema.$inferType): IRegistrationAccount => {
         return {
             addr: input.addr,
             isPrivate: input.isPrivate,

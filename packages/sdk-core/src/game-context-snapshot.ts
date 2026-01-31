@@ -1,11 +1,12 @@
 import { DecryptionCache } from './decryption-cache'
-import { GameContext, GameStatus, INode, NodeStatus } from './game-context'
+import { GameContext, GameStatus } from './game-context'
+import { INode, INodeStatus } from './node'
 import { RandomState } from './random-state'
 
 export class NodeSnapshot {
     readonly id: bigint
     readonly addr: string
-    readonly status: NodeStatus
+    readonly status: INodeStatus
 
     constructor(o: INode) {
         this.id = o.id
@@ -25,7 +26,7 @@ export class GameContextSnapshot {
     readonly revealed: RevealedMap
 
     constructor(context: GameContext, decryptionCache: DecryptionCache) {
-        this.gameAddr = context.spec.gameAddr
+        this.gameAddr = context.gameSpec.gameAddr
         this.accessVersion = context.accessVersion
         this.settleVersion = context.settleVersion
         this.status = context.status

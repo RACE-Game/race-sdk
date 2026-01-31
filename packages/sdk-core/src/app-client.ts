@@ -7,7 +7,7 @@ import { SdkError } from './error'
 import { Client } from './client'
 import { DecryptionCache } from './decryption-cache'
 import { BaseClient } from './base-client'
-import { GameAccount, GameBundle, Token } from './accounts'
+import { IGameAccount, IGameBundle, IToken } from './accounts'
 import {
     ConnectionStateCallbackFunction,
     EventCallbackFunction,
@@ -20,6 +20,7 @@ import {
     ProfileCallbackFunction,
 } from './types'
 import { SubClient } from './sub-client'
+import { SharedData } from './shared-data'
 import { Checkpoint } from './checkpoint'
 import { IProfileLoader, ProfileLoader } from './profile-loader'
 import { IStorage } from './storage'
@@ -27,7 +28,7 @@ import { GameContextSnapshot } from './game-context-snapshot'
 
 export type AppClientInitOpts = {
     transport: ITransport
-    storage?: IStorage
+    storage: IStorage
     gameAddr: string
     playerAddr: string
     onEvent: EventCallbackFunction
@@ -52,12 +53,12 @@ export type SubClientInitOpts = {
 
 export type AppClientCtorOpts = {
     gameAddr: string
-    gameAccount: GameAccount
+    gameAccount: IGameAccount
     playerAddr: string
     handler: Handler
     client: Client
     transport: ITransport
-    storage?: IStorage
+    storage: IStorage
     encryptor: IEncryptor
     profileLoader: IProfileLoader
     connection: IConnection
@@ -76,7 +77,7 @@ export type AppClientCtorOpts = {
 
 export class AppClient extends BaseClient {
     __endpoint: string
-    __latestGameAccount: GameAccount
+    __latestGameAccount: IGameAccount
 
     constructor(opts: AppClientCtorOpts) {
         super({
@@ -125,10 +126,11 @@ export class AppClient extends BaseClient {
                 throw SdkError.gameNotServed(gameAddr)
             }
 
-            let token: Token | undefined = await transport.getToken(gameAccount.tokenAddr)
+            let token: IToken | undefined = await transport.getToken(gameAccount.tokenAddr)
 
-            const [encryptor, gameBundle, transactorAccount] = await Promise.all([
-                Encryptor.create(playerAddr, storage),
+            const encryptor = new Encryptor()
+
+            const [gameBundle, transactorAccount] = await Promise.all([
                 getGameBundle(transport, storage, gameAccount.bundleAddr),
                 transport.getServerAccount(transactorAddr),
             ])
@@ -173,7 +175,7 @@ export class AppClient extends BaseClient {
                 throw SdkError.gameNotServed(gameAddr)
             }
 
-            const gameContext = new GameContext(gameAccount, checkpoint)
+            const gameContext = new GameContext(checkpoint.sharedData.generalize(), checkpoint.rootData)
 
             if (token === undefined) {
                 const decimals = await transport.getTokenDecimals(gameAccount.tokenAddr)
@@ -241,7 +243,8 @@ export class AppClient extends BaseClient {
             const addr = `${this.__gameAddr}:${gameId.toString()}`
 
             console.group(`SubClient initialization, id: ${gameId}`)
-            console.info('Versioned data:', this.__gameContext.checkpoint.getVersionedData(gameId))
+            console.info('Versioned data:', this.__gameContext.versionedData.getSubData(gameId))
+
 
             const subGame = this.__gameContext.findSubGame(gameId)
 
@@ -256,18 +259,41 @@ export class AppClient extends BaseClient {
 
             const decryptionCache = new DecryptionCache()
             const playerAddr = this.__playerAddr
+
+
+            const gameBundle = await getGameBundle(this.__transport, this.__storage, bundleAddr)
             const connection = Connection.initialize(addr, playerAddr, this.__endpoint, this.__encryptor)
             const client = new Client(playerAddr, this.__encryptor, connection)
-            const gameBundle = await getGameBundle(this.__transport, this.__storage, bundleAddr)
-            const handler = await Handler.initialize(gameBundle, this.__encryptor, client, decryptionCache)
 
-            const gameContext = this.__gameContext.subContext(subGame)
+            const [handler, checkpointOffChain] = await Promise.all([
+                Handler.initialize(gameBundle, this.__encryptor, client, decryptionCache),
+                connection.getLatestCheckpoint(),
+            ])
+
+            if (checkpointOffChain === undefined) {
+                throw new Error(`Cannot get checkpoint from transactor for subgame: ${subGame.gameId}`)
+            }
+
+            /// XXX create a context for subgame
+            /// If the context is created from versioned data, we just need a versioned data for sub game
+
+            const subVersionedData = checkpointOffChain.rootData;
+
+            console.log(subVersionedData)
+
+            const sharedData = {
+                balances: this.__gameContext.balances,
+                nodes: this.__gameContext.nodes
+            }
+
+            const gameContext = new GameContext(sharedData, subVersionedData)
 
             return new SubClient({
                 gameAddr: addr,
                 playerAddr: this.__playerAddr,
                 transport: this.__transport,
                 encryptor: this.__encryptor,
+                storage: this.__storage,
                 onEvent,
                 onMessage,
                 onTxState,
@@ -296,7 +322,6 @@ export class AppClient extends BaseClient {
     async attachGame() {
         try {
             this.__connect()
-            await this.__attachGameWithRetry()
             this.__startSubscribe()
         } catch (e) {
             console.error(this.__logPrefix + 'Attaching game failed', e)
@@ -327,25 +352,6 @@ export class AppClient extends BaseClient {
         return this.__profileLoader.getProfile(addr)
     }
 
-    async getEncryptorPublicKeys(): Promise<IPublicKeyRaws> {
-        return await this.__encryptor.exportPublicKey()
-    }
-
-    /**
-     * Return if current player is in game.
-     */
-    isInGame(): boolean {
-        try {
-            const playerId = this.addrToId(this.__playerAddr)
-            if (this.__gameContext.players.find(p => p.id === playerId) !== undefined) {
-                return true
-            }
-            return false
-        } catch (e) {
-            return false
-        }
-    }
-
     makeSubGameAddr(gameId: number): string {
         return `${this.__gameAddr}:${gameId}`
     }
@@ -353,7 +359,7 @@ export class AppClient extends BaseClient {
 
 // Miscellaneous
 
-export async function getGameBundle<W>(transport: ITransport<W>, storage: IStorage | undefined, bundleAddr: string): Promise<GameBundle> {
+export async function getGameBundle<W>(transport: ITransport<W>, storage: IStorage | undefined, bundleAddr: string): Promise<IGameBundle> {
     let gameBundle = undefined
 
     if (storage) {
@@ -374,7 +380,7 @@ export async function getGameBundle<W>(transport: ITransport<W>, storage: IStora
     return gameBundle
 }
 
-export function makeGameInfo(gameAccount: GameAccount, token: Token): GameInfo {
+export function makeGameInfo(gameAccount: IGameAccount, token: IToken): GameInfo {
     const info: GameInfo = {
         gameAddr: gameAccount.addr,
         title: gameAccount.title,

@@ -8,12 +8,15 @@ import {
 } from './connection'
 import { EventEffects, GameContext } from './game-context'
 import { GameContextSnapshot } from './game-context-snapshot'
+import { Credentials } from './credentials'
 import { ITransport } from './transport'
 import { IStorage } from './storage'
 import { Handler } from './handler'
-import { IEncryptor, sha256String } from './encryptor'
-import { GameAccount } from './accounts'
+import { IEncryptor } from './encryptor'
+import { IGameAccount } from './accounts'
+import { sha256String } from './utils'
 import { Client } from './client'
+import { CLIENT_MODES } from './client-mode'
 import { Custom, GameEvent, ICustomEvent } from './events'
 import { DecryptionCache } from './decryption-cache'
 import {
@@ -38,6 +41,7 @@ import {
 import { InitAccount } from './init-account'
 import { CheckpointOnChain } from './checkpoint'
 import { SdkError } from './error'
+import { Node } from './node'
 import { IProfileLoader } from './profile-loader'
 
 const MAX_RETRIES = 3
@@ -55,6 +59,7 @@ export type BaseClientCtorOpts = {
     client: Client
     transport: ITransport
     encryptor: IEncryptor
+    storage: IStorage
     profileLoader: IProfileLoader
     connection: IConnection
     gameContext: GameContext
@@ -78,8 +83,8 @@ export class BaseClient {
     __handler: Handler
     __client: Client
     __transport: ITransport
-    __storage: IStorage | undefined
     __connection: IConnection
+    __storage: IStorage
     __gameContext: GameContext
     __onEvent: EventCallbackFunction
     __onMessage?: MessageCallbackFunction
@@ -106,6 +111,7 @@ export class BaseClient {
         this.__client = opts.client
         this.__transport = opts.transport
         this.__connection = opts.connection
+        this.__storage = opts.storage
         this.__gameContext = opts.gameContext
         this.__onEvent = opts.onEvent
         this.__onMessage = opts.onMessage
@@ -229,18 +235,6 @@ export class BaseClient {
         }
     }
 
-    async __attachGameWithRetry() {
-        for (let i = 0; i < 10; i++) {
-            const resp = await this.__client.attachGame()
-            if (resp === 'success') {
-                break
-            } else {
-                console.warn(this.__logPrefix + 'Game is not ready, try again after 2 second.')
-                await new Promise(r => setTimeout(r, 2000))
-            }
-        }
-    }
-
     __invokeErrorCallback(err: ErrorKind, arg?: any) {
         if (this.__onError) {
             this.__onError(err, arg)
@@ -255,7 +249,7 @@ export class BaseClient {
         this.__onEvent(snapshot, state, event, options)
     }
 
-    async __getGameAccount(): Promise<GameAccount> {
+    async __getGameAccount(): Promise<IGameAccount> {
         let retries = 0
         while (true) {
             if (retries === MAX_RETRIES) {
@@ -329,10 +323,10 @@ export class BaseClient {
             // For log group
             try {
                 console.info('Event:', event)
+                console.info('Game context:', this.__gameContext)
                 this.__gameContext.setTimestamp(timestamp)
                 effects = await this.__handler.handleEvent(this.__gameContext, event)
                 state = this.__gameContext.handlerState
-
                 await this.__checkStateSha(stateSha, 'event-state-sha-mismatch')
             } catch (e: any) {
                 console.error(this.__logPrefix, e)
@@ -354,22 +348,103 @@ export class BaseClient {
         }
     }
 
+    async __loadNodeCredentials(node: Node) {
+        const addr = node.addr
+
+        let credentials;
+
+        if (node.mode === 0) { // player
+            // XXX preload this profile?
+            const profile = await this.__profileLoader.getProfile(addr)
+
+            if (profile === undefined) {
+                throw new Error(`Profile account not found for ${addr}`)
+            }
+
+            console.debug(`Player ${addr} credentials:`, profile.credentials)
+            credentials = Credentials.deserialize(profile.credentials)
+        } else {
+            const server = await this.__transport.getServerAccount(addr)
+
+            if (server === undefined) {
+                throw new Error(`Server account not found for ${addr}`)
+            }
+
+            console.debug(`Server ${addr} credentials:`, server.credentials)
+            credentials = Credentials.deserialize(server.credentials)
+        }
+
+        this.__gameContext.addNode(node.addr, node.id, CLIENT_MODES[node.mode])
+
+        if (this.playerAddr === node.addr) {
+            const secret = await this.__storage.getSecret(addr)
+            if (!secret) {
+                throw new Error('Secret not found in storage, do `generateCredentials` before any game')
+            }
+            await this.__encryptor.importCredentials(secret, addr, credentials)
+        } else {
+            await this.__encryptor.importPublicCredentials(addr, credentials)
+        }
+    }
+
+
+    async __loadServerCredentials(addr: string, id: bigint, transactor_addr: string) {
+        const server = await this.__transport.getServerAccount(addr)
+
+        if (server === undefined) {
+            throw new Error(`Server account not found for ${addr}`)
+        }
+
+        const credentials = Credentials.deserialize(server.credentials)
+        const mode = addr === transactor_addr ? 'Transactor' : 'Validator'
+
+        this.__gameContext.addNode(addr, id, mode)
+
+        await this.__encryptor.importPublicCredentials(addr, credentials)
+
+        console.info(`Load server for ${addr}, mode: ${mode}`)
+    }
+
+    async __loadPlayerCredentials(addr: string, id: bigint) {
+        const profile = await this.__profileLoader.getProfile(addr)
+
+        if (profile === undefined) {
+            throw new Error(`Profile account not found for ${addr}`)
+        }
+
+        const credentials = Credentials.deserialize(profile.credentials)
+        const mode = 'Player'
+
+        this.__gameContext.addNode(addr, id, mode)
+
+        if (this.playerAddr === addr) {
+            const secret = await this.__storage.getSecret(addr)
+            if (!secret) {
+                throw new Error('Secret not found in storage, do `generateCredentials` before any game')
+            }
+            await this.__encryptor.importCredentials(secret, addr, credentials)
+        } else {
+            await this.__encryptor.importPublicCredentials(addr, credentials)
+        }
+
+        console.info(`Load profile for ${addr}`)
+    }
+
     async __handleSync(frame: BroadcastFrameSync) {
         console.group(`${this.__logPrefix}Receive sync broadcast`, frame)
         try {
+            await this.__profileLoader.load(frame.newPlayers.map(p => p.addr))
+
             for (const node of frame.newServers) {
-                this.__gameContext.addNode(
-                    node.addr,
-                    node.accessVersion,
-                    node.addr === frame.transactor_addr ? 'transactor' : 'validator'
-                )
+                await this.__loadServerCredentials(node.addr, node.accessVersion, frame.transactor_addr)
             }
+
             for (const node of frame.newPlayers) {
-                this.__gameContext.addNode(node.addr, node.accessVersion, 'player')
-                console.info('Load profile for:', node.addr)
+                await this.__loadPlayerCredentials(node.addr, node.accessVersion)
             }
-            this.__profileLoader.load(frame.newPlayers.map(p => p.addr))
+
             this.__gameContext.setAccessVersion(frame.accessVersion)
+
         } finally {
             console.groupEnd()
         }
@@ -402,26 +477,37 @@ export class BaseClient {
             await this.__handleEvent(frame)
         } else if (frame instanceof BroadcastFrameBacklogs) {
             console.group(`${this.__logPrefix}Receive event backlogs`, frame)
+            console.debug(`Game ID = ${this.__gameId}`)
 
-            // TODO, some special handling for subgame
-            if (this.__gameId !== 0) {
-                const versionedData = frame.checkpointOffChain?.data.get(this.__gameId)
-                if (versionedData === undefined) {
-                    console.warn('Invalid versioned data', versionedData)
-                    throw new Error('Missing checkpoint, mostly a bug')
-                }
-                this.__gameContext.checkpoint.initVersionedData(versionedData)
-                this.__gameContext.setHandlerState(versionedData.data)
-                this.__gameContext.versions = versionedData.versions
-                this.__gameContext.stateSha = await sha256String(versionedData.data)
-            } else {
-                const handlerState = this.__gameContext.checkpoint.getData(0)
-                if (handlerState === undefined) {
-                    throw SdkError.malformedCheckpoint()
-                }
-                this.__gameContext.setHandlerState(handlerState)
-                this.__gameContext.stateSha = await sha256String(handlerState)
+            const nodes: Node[] = frame.checkpointOffChain?.sharedData?.nodes || []
+
+            console.debug('Load node information:', nodes)
+
+            const nodePlayerAddrs = nodes.filter(n => n.mode === 0).map(n => n.addr)
+            await this.__profileLoader.load(nodePlayerAddrs)
+
+            for (const node of nodes) {
+                await this.__loadNodeCredentials(node)
             }
+
+            // TODO, remove the unnecessary part of the message.
+            //
+            // The versioned data for current game is always the rootData.
+
+            console.log(frame)
+            console.log(frame.checkpointOffChain)
+            console.log(frame.checkpointOffChain?.rootData)
+
+            let versionedData = frame.checkpointOffChain?.rootData
+
+            if (versionedData === undefined) {
+                console.warn('Invalid versioned data', versionedData)
+                throw SdkError.missingCheckpoint()
+            }
+
+            this.__gameContext.versionedData = versionedData
+            this.__gameContext.setHandlerState(versionedData.handlerState)
+            this.__gameContext.versions = versionedData.versions
 
             await this.__checkStateSha(frame.stateSha, 'checkpoint-state-sha-mismatch')
 
@@ -443,12 +529,17 @@ export class BaseClient {
                 } else {
                     console.warn('Callback onReady is not provided.')
                 }
+            } catch (e) {
+                console.error(e)
             } finally {
                 console.groupEnd()
             }
         }
     }
 
+    /**
+     * Connect to the transactor.
+     */
     __connect() {
         this.__connection.connect(
             new ConnectParams({

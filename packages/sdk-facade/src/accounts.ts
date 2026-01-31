@@ -12,11 +12,11 @@ import * as RaceCore from '@race-foundation/sdk-core'
 type RecipientSlotType = Indices<typeof RECIPIENT_SLOT_TYPES>
 
 export abstract class RecipientSlotOwner {
-    generalize(): RaceCore.RecipientSlotOwner {
+    generalize(): RaceCore.IRecipientSlotOwner {
         if (this instanceof RecipientSlotOwnerUnassigned) {
-            return { kind: 'unassigned', identifier: this.identifier }
+            return { kind: 'Unassigned', identifier: this.identifier }
         } else if (this instanceof RecipientSlotOwnerAssigned) {
-            return { kind: 'assigned', addr: this.addr }
+            return { kind: 'Assigned', addr: this.addr }
         } else {
             throw new Error('Invalid RecipientSlotOwner')
         }
@@ -43,7 +43,7 @@ export class RecipientSlotOwnerAssigned extends RecipientSlotOwner {
     }
 }
 
-export type EntryTypeKind = 'Invalid' | 'Cash' | 'Ticket' | 'Gating' | 'Disabled'
+export type EntryTypeKind = 'invalid' | 'cash' | 'ticket' | 'gating' | 'disabled'
 
 export interface IEntryTypeKind {
     kind(): EntryTypeKind
@@ -51,9 +51,9 @@ export interface IEntryTypeKind {
 
 export abstract class EntryType implements IEntryTypeKind {
     kind(): EntryTypeKind {
-        return 'Invalid'
+        return 'invalid'
     }
-    generalize(): RaceCore.EntryType {
+    generalize(): RaceCore.IEntryType {
         if (this instanceof EntryTypeCash) {
             return {
                 kind: 'cash',
@@ -90,7 +90,7 @@ export class EntryTypeCash extends EntryType implements IEntryTypeKind {
         Object.setPrototypeOf(this, EntryTypeCash.prototype)
     }
     kind(): EntryTypeKind {
-        return 'Cash'
+        return 'cash'
     }
 }
 
@@ -104,7 +104,7 @@ export class EntryTypeTicket extends EntryType implements IEntryTypeKind {
         Object.setPrototypeOf(this, EntryTypeTicket.prototype)
     }
     kind(): EntryTypeKind {
-        return 'Ticket'
+        return 'ticket'
     }
 }
 
@@ -118,7 +118,7 @@ export class EntryTypeGating extends EntryType implements IEntryTypeKind {
         Object.setPrototypeOf(this, EntryTypeGating.prototype)
     }
     kind(): EntryTypeKind {
-        return 'Gating'
+        return 'gating'
     }
 }
 
@@ -129,7 +129,7 @@ export class EntryTypeDisabled extends EntryType implements IEntryTypeKind {
         Object.setPrototypeOf(this, EntryTypeDisabled.prototype)
     }
     kind(): EntryTypeKind {
-        return 'Disabled'
+        return 'disabled'
     }
 }
 
@@ -155,6 +155,8 @@ export class ServerAccount {
     readonly addr!: string
     @field('string')
     readonly endpoint!: string
+    @field('u8-array')
+    readonly credentials!: Uint8Array
     constructor(fields: Fields<ServerAccount>) {
         Object.assign(this, fields)
     }
@@ -167,8 +169,6 @@ export class PlayerJoin {
     readonly position!: number
     @field('u64')
     readonly accessVersion!: bigint
-    @field('string')
-    readonly verifyKey!: string
     constructor(fields: Fields<PlayerJoin>) {
         Object.assign(this, fields)
     }
@@ -181,8 +181,6 @@ export class ServerJoin {
     readonly endpoint!: string
     @field('u64')
     readonly accessVersion!: bigint
-    @field('string')
-    readonly verifyKey!: string
     constructor(fields: Fields<ServerJoin>) {
         Object.assign(this, fields)
     }
@@ -216,7 +214,7 @@ export class Bonus {
         Object.assign(this, fields)
     }
 
-    generalize(): RaceCore.Bonus {
+    generalize(): RaceCore.IBonus {
         return {
             identifier: this.identifier,
             tokenAddr: this.tokenAddr,
@@ -237,7 +235,7 @@ export class Vote {
     constructor(fields: Fields<Vote>) {
         Object.assign(this, fields)
     }
-    generalize(): RaceCore.Vote {
+    generalize(): RaceCore.IVote {
         return {
             voter: this.voter,
             votee: this.votee,
@@ -392,10 +390,12 @@ export class PlayerProfile {
     readonly nick!: string
     @field(option('string'))
     readonly pfp: string | undefined
+    @field('u8-array')
+    readonly credentials!: Uint8Array
     constructor(fields: Fields<PlayerProfile>) {
         Object.assign(this, fields)
     }
-    generalize(): RaceCore.PlayerProfile {
+    generalize(): RaceCore.IPlayerProfile {
         return this
     }
 }
@@ -410,7 +410,7 @@ export class RecipientSlotShare {
     constructor(fields: Fields<RecipientSlotShare>) {
         Object.assign(this, fields)
     }
-    generalize(): RaceCore.RecipientSlotShare {
+    generalize(): RaceCore.IRecipientSlotShare {
         return {
             owner: this.owner.generalize(),
             weights: this.weights,
@@ -433,7 +433,7 @@ export class RecipientSlot {
     constructor(fields: Fields<RecipientSlot>) {
         Object.assign(this, fields)
     }
-    generalize(): RaceCore.RecipientSlot {
+    generalize(): RaceCore.IRecipientSlot {
         return {
             id: this.id,
             slotType: RECIPIENT_SLOT_TYPES[this.slotType],
@@ -454,7 +454,7 @@ export class RecipientAccount {
     constructor(fields: Fields<RecipientAccount>) {
         Object.assign(this, fields)
     }
-    generalize(): RaceCore.RecipientAccount {
+    generalize(): RaceCore.IRecipientAccount {
         return {
             addr: this.addr,
             capAddr: this.capAddr,

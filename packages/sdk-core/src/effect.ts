@@ -134,14 +134,14 @@ export class ActionTimeout {
     }
 }
 
-export class SubGame {
+export class LaunchSubGame {
     @field('usize')
     gameId!: number
     @field('string')
     bundleAddr!: string
     @field(struct(InitAccount))
     initAccount!: InitAccount
-    constructor(fields: Fields<SubGame>) {
+    constructor(fields: Fields<LaunchSubGame>) {
         Object.assign(this, fields)
     }
 }
@@ -217,8 +217,8 @@ export class Effect {
     error: HandleError | undefined
     @field(option(struct(Transfer)))
     transfer!: Transfer | undefined
-    @field(array(struct(SubGame)))
-    launchSubGames!: SubGame[]
+    @field(array(struct(LaunchSubGame)))
+    launchSubGames!: LaunchSubGame[]
     @field(array(struct(EmitBridgeEvent)))
     bridgeEvents!: EmitBridgeEvent[]
     @field('bool')
@@ -271,7 +271,7 @@ export class Effect {
         const handlerState = context.handlerState
         const error = undefined
         const transfer: Transfer | undefined = undefined
-        const launchSubGames: SubGame[] = []
+        const launchSubGames: LaunchSubGame[] = []
         const bridgeEvents: EmitBridgeEvent[] = []
         const entryLock = undefined
         const reset = false

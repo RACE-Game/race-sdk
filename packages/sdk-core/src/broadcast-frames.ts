@@ -13,8 +13,6 @@ export class BroadcastPlayerJoin {
     readonly position!: number
     @field('u64')
     readonly accessVersion!: bigint
-    @field('string')
-    readonly verifyKey!: string
     constructor(fields: Fields<BroadcastPlayerJoin>) {
         Object.assign(this, fields)
     }
@@ -27,8 +25,6 @@ export class BroadcastServerJoin {
     readonly endpoint!: string
     @field('u64')
     readonly accessVersion!: bigint
-    @field('string')
-    readonly verifyKey!: string
     constructor(fields: Fields<BroadcastServerJoin>) {
         Object.assign(this, fields)
     }

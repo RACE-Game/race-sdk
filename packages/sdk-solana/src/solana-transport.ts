@@ -46,21 +46,23 @@ import {
     JoinParams,
     DepositParams,
     VoteParams,
+    EntryTypeCash,
+    EntryTypeTicket,
     CreatePlayerProfileParams,
     CreateRegistrationParams,
     CreateRegistrationResponse,
     CreateRegistrationError,
     RegisterGameParams,
     UnregisterGameParams,
-    GameAccount,
-    GameBundle,
-    PlayerProfile,
-    ServerAccount,
-    RegistrationAccount,
-    Token,
-    Nft,
-    RecipientAccount,
-    RecipientSlot,
+    IGameAccount,
+    IGameBundle,
+    IPlayerProfile,
+    IServerAccount,
+    IRegistrationAccount,
+    IToken,
+    INft,
+    IRecipientAccount,
+    IRecipientSlot,
     RecipientClaimParams,
     TokenBalance,
     ResponseHandle,
@@ -87,6 +89,8 @@ import {
     AddRecipientSlotParams,
     AddRecipientSlotResponse,
     AddRecipientSlotError,
+    CREDENTIALS_MESSAGE,
+    generateCredentials,
 } from '@race-foundation/sdk-core'
 import * as instruction from './instruction'
 
@@ -101,11 +105,10 @@ import {
     SERVER_PROFILE_SEED,
     PLAYERS_REG_INIT_LEN,
     PLAYER_INFO_LEN,
+    PROFILE_VERSION,
 } from './constants'
 
 import {
-    EntryTypeCash,
-    EntryTypeTicket,
     GameState,
     PlayerState,
     PlayersRegState,
@@ -125,7 +128,9 @@ import { createDasRpc, MetaplexDASApi, Asset } from './metaplex'
 import type { SolanaWalletAdapterWallet } from '@solana/wallet-standard'
 import { IdentifierString } from '@wallet-standard/base'
 
+const SECRET_MESSAGE = `These signatures will be used to generate encrypted keys within the game.`
 const SolanaSignAndSendTransaction = 'solana:signAndSendTransaction'
+const SolanaSignMessage = 'solana:signMessage'
 const MAX_CONFIRM_TIMES = 32
 const MAX_RETRIES_FOR_GET_PLAYERS_REG = 5
 
@@ -156,10 +161,6 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     #rpcTransports: RpcTransport[]
     #nextTransport = 0
 
-    walletAddr(wallet: SolanaWalletAdapterWallet): string {
-        return wallet.accounts[0].address
-    }
-
     constructor(chain: IdentifierString, endpoints: string[])
     constructor(chain: IdentifierString, endpoint: string)
     constructor(chain: IdentifierString, endpointOrEndponits: string | string[]) {
@@ -170,6 +171,19 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         }
 
         this.#chain = chain
+    }
+
+    get chain(): string {
+        return 'solana'
+    }
+
+    walletAddr(wallet: SolanaWalletAdapterWallet): string {
+        return wallet.accounts[0].address
+    }
+
+    async getCredentialOriginSecret(wallet: SolanaWalletAdapterWallet): Promise<Uint8Array> {
+        const originSecret = await this.signMessage(wallet, CREDENTIALS_MESSAGE)
+        return originSecret;
     }
 
     roundRobinTransport(): RpcTransport {
@@ -395,7 +409,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         response: ResponseHandle<JoinResponse, JoinError>
     ): Promise<void> {
         const payer = this.useTransactionSendingSigner(wallet)
-        const { gameAddr, amount: amountRaw, position, verifyKey } = params
+        const { gameAddr, amount: amountRaw, position } = params
         const gameAccountKey = address(gameAddr)
 
         // Call RPC functions in Parallel
@@ -440,16 +454,6 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         let profileKey: Address
         if (profileKey0 !== undefined) {
             profileKey = profileKey0
-        } else if (params.createProfileIfNeeded) {
-            const createProfile = await this._prepareCreatePlayerProfile(payer, {
-                nick: payer.address.substring(0, 6),
-            })
-            if ('err' in createProfile) {
-                return response.failed(createProfile.err)
-            }
-            const { ixs: createProfileIxs, profileKey: pk } = createProfile.ok
-            ixs.push(...createProfileIxs)
-            profileKey = pk
         } else {
             return response.failed('profile-not-found')
         }
@@ -505,7 +509,6 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             accessVersion,
             settleVersion,
             position,
-            verifyKey,
             pda,
         })
 
@@ -821,22 +824,33 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     }
 
     async _prepareCreatePlayerProfile(
-        payer: TransactionSigner,
+        wallet: SolanaWalletAdapterWallet,
         params: CreatePlayerProfileParams
-    ): Promise<Result<{ ixs: IInstruction[]; profileKey: Address }, CreatePlayerProfileError>> {
+    ): Promise<Result<{ ixs: IInstruction[]; profileKey: Address, credentials: Uint8Array }, CreatePlayerProfileError>> {
+
+        const payer = this.useTransactionSendingSigner(wallet)
+
         let ixs = []
-        const { nick, pfp } = params
+        const { nick, pfp, secret } = params
         if (nick.length > 16) {
             return { err: 'invalid-nick' }
         }
         console.info('Payer Public Key:', payer.address)
+        console.info('XXX secret:', secret)
 
         const profileKey = await this._getPlayerProfileAddress(payer.address)
 
         console.info('Player profile public key: ', profileKey)
         const profileAccountData = await this._getFinalizedBase64AccountData(profileKey)
 
-        if (!profileAccountData) {
+        let credentials;
+        if (profileAccountData && profileAccountData[0] == PROFILE_VERSION) {
+            // Not the first time
+            const state = PlayerState.deserialize(profileAccountData)
+            credentials = state.credentials;
+        } else {
+            credentials = (await generateCredentials(secret)).serialize()
+
             const lamports = await this.rpc().getMinimumBalanceForRentExemption(PROFILE_ACCOUNT_LEN).send()
             const ix = getCreateAccountWithSeedInstruction({
                 baseAccount: payer,
@@ -853,13 +867,14 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         }
 
         const pfpKey = !pfp ? address('11111111111111111111111111111111') : address(pfp)
-        const createProfile = instruction.createPlayerProfile(payer.address, profileKey, nick, pfpKey)
+        const createProfile = instruction.createPlayerProfile(payer.address, profileKey, nick, pfpKey, credentials)
         console.info('Transaction Instruction[CreatePlayerProfile]:', createProfile)
         ixs.push(createProfile)
         return {
             ok: {
                 ixs,
                 profileKey,
+                credentials,
             },
         }
     }
@@ -871,11 +886,11 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     ): Promise<void> {
         const payer = this.useTransactionSendingSigner(wallet)
         let ixs: IInstruction[] = []
-        const createPlayerProfile = await this._prepareCreatePlayerProfile(payer, params)
+        const createPlayerProfile = await this._prepareCreatePlayerProfile(wallet, params)
         if ('err' in createPlayerProfile) {
             return response.failed(createPlayerProfile.err)
         }
-        const { ixs: createProfileIxs, profileKey } = createPlayerProfile.ok
+        const { ixs: createProfileIxs, profileKey, credentials } = createPlayerProfile.ok
         ixs.push(...createProfileIxs)
         let tx = await makeTransaction(this.rpc(), payer, ixs)
         if ('err' in tx) {
@@ -894,6 +909,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
                 nick: params.nick,
                 pfp: params.pfp,
                 addr: profileKey,
+                credentials,
             },
         })
     }
@@ -1258,7 +1274,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     async unregisterGame(_payer: SolanaWalletAdapterWallet, _params: UnregisterGameParams): Promise<void> {
         throw new Error('unimplemented')
     }
-    async getGameAccount(addr: string): Promise<GameAccount | undefined> {
+    async getGameAccount(addr: string): Promise<IGameAccount | undefined> {
         const gameAccountKey = address(addr)
         const gameState = await this._getGameState(gameAccountKey)
         if (gameState !== undefined) {
@@ -1277,7 +1293,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             return undefined
         }
     }
-    async getGameBundle(addr: string): Promise<GameBundle | undefined> {
+    async getGameBundle(addr: string): Promise<IGameBundle | undefined> {
         const mintKey = address(addr)
         const [metadataKey] = await getProgramDerivedAddress({
             programAddress: METAPLEX_PROGRAM_ID,
@@ -1303,7 +1319,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             data: new Uint8Array(0),
         }
     }
-    async getPlayerProfile(addr: string): Promise<PlayerProfile | undefined> {
+    async getPlayerProfile(addr: string): Promise<IPlayerProfile | undefined> {
         const playerKey = address(addr)
 
         const profileKey = await this._getPlayerProfileAddress(playerKey)
@@ -1317,9 +1333,9 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             return undefined
         }
     }
-    async listPlayerProfiles(addrs: string[]): Promise<Array<PlayerProfile | undefined>> {
+    async listPlayerProfiles(addrs: string[]): Promise<Array<IPlayerProfile | undefined>> {
         // We should truncate addresses by 100
-        let results: Array<PlayerProfile | undefined> = []
+        let results: Array<IPlayerProfile | undefined> = []
         for (let i = 0; i < addrs.length; i += 100) {
             const addrsChunk = addrs.slice(i, i + 100).map(address)
             const keys = await Promise.all(addrsChunk.map(addr => this._getPlayerProfileAddress(addr)))
@@ -1328,7 +1344,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         }
         return results
     }
-    async getServerAccount(addr: string): Promise<ServerAccount | undefined> {
+    async getServerAccount(addr: string): Promise<IServerAccount | undefined> {
         const serverKey = address(addr)
 
         const profileKey = await this._getServerProfileAddress(serverKey)
@@ -1339,7 +1355,19 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             return undefined
         }
     }
-    async getRegistration(addr: string): Promise<RegistrationAccount | undefined> {
+    async listServerAccounts(addrs: string[]): Promise<Array<IServerAccount | undefined>> {
+        // We should truncate addresses by 100
+        let results: Array<IServerAccount | undefined> = []
+        for (let i = 0; i < addrs.length; i += 100) {
+            const addrsChunk = addrs.slice(i, i + 100).map(address)
+            const keys = await Promise.all(addrsChunk.map(addr => this._getPlayerProfileAddress(addr)))
+            const states = await this._getMultiServerStates(keys)
+            results.push(...states.map((state, j) => state?.generalize()))
+        }
+        return results
+    }
+
+    async getRegistration(addr: string): Promise<IRegistrationAccount | undefined> {
         const regKey = address(addr)
         const regState = await this._getRegState(regKey)
         if (regState !== undefined) {
@@ -1349,7 +1377,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         }
     }
 
-    async listGameAccounts(addrs: string[]): Promise<GameAccount[]> {
+    async listGameAccounts(addrs: string[]): Promise<IGameAccount[]> {
         const keys = addrs.map(a => address(a))
         const gameStates = await this._getMultiGameStates(keys)
         const playersRegAccountKeys = gameStates
@@ -1357,7 +1385,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             .map(s => s.playersRegAccount)
         const playersRegStates = await this._getMultiPlayersRegStates(playersRegAccountKeys)
 
-        let games: Array<GameAccount> = []
+        let games: Array<IGameAccount> = []
         for (let i = 0; i < gameStates.length; i++) {
             const gs = gameStates[i]
             if (gs !== undefined) {
@@ -1370,11 +1398,11 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         return games
     }
 
-    async getRecipient(addr: string): Promise<RecipientAccount | undefined> {
+    async getRecipient(addr: string): Promise<IRecipientAccount | undefined> {
         const recipientKey = address(addr)
         const recipientState = await this._getRecipientState(recipientKey)
         if (recipientState === undefined) return undefined
-        let slots: RecipientSlot[] = []
+        let slots: IRecipientSlot[] = []
         for (const slot of recipientState.slots) {
             let balance
             if (slot.tokenAddr == NATIVE_MINT) {
@@ -1409,7 +1437,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         return mint.data.decimals
     }
 
-    _parseAssetRespToToken(asset: Asset): Token | undefined {
+    _parseAssetRespToToken(asset: Asset): IToken | undefined {
         const { name, symbol } = asset.content.metadata
         const icon = asset.content.files?.[0]?.uri
         if (icon == undefined) {
@@ -1428,7 +1456,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         return token
     }
 
-    async _getMultipleAssetsAsTokens(addrs: Address[]): Promise<Array<Token | undefined>> {
+    async _getMultipleAssetsAsTokens(addrs: Address[]): Promise<Array<IToken | undefined>> {
         const assetsResp = await this.dasRpc().getAssets({ids: addrs}).send()
 
         if ('result' in assetsResp) {
@@ -1439,7 +1467,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         }
     }
 
-    async _getAssetAsToken(addr: Address): Promise<Token | undefined> {
+    async _getAssetAsToken(addr: Address): Promise<IToken | undefined> {
         const assetResp = await this.dasRpc().getAsset(addr).send()
         if ('result' in assetResp) {
             return this._parseAssetRespToToken(assetResp.result)
@@ -1449,7 +1477,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         }
     }
 
-    async getToken(addr: string): Promise<Token | undefined> {
+    async getToken(addr: string): Promise<IToken | undefined> {
         const mintKey = address(addr)
         try {
             return await this._getAssetAsToken(mintKey)
@@ -1459,7 +1487,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         }
     }
 
-    async listTokens(rawMintAddrs: string[]): Promise<Token[]> {
+    async listTokens(rawMintAddrs: string[]): Promise<IToken[]> {
         // In Solana, token specification is stored in Mint, user token wallet is stored in Token.
         // Here we are querying the Mints.
 
@@ -1469,7 +1497,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
 
         let tokens = await this._getMultipleAssetsAsTokens(rawMintAddrs.map(a => address(a)))
 
-        return tokens.filter((t): t is Token => t !== undefined)
+        return tokens.filter((t): t is IToken => t !== undefined)
     }
 
     async __fetchAllToken(walletAddr: Address, mintAddrs: Address[]): Promise<MaybeAccount<SPL.Token, string>[]> {
@@ -1531,7 +1559,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         return result
     }
 
-    async getNft(addr: Address): Promise<Nft | undefined> {
+    async getNft(addr: Address): Promise<INft | undefined> {
         const resp = await this.dasRpc().getAsset(addr).send()
 
         if ('result' in resp) {
@@ -1540,7 +1568,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             const image = item.content.links?.['image'] as string | undefined
 
             if (image !== undefined) {
-                const nft: Nft = {
+                const nft: INft = {
                     addr: item.id,
                     collection: collection,
                     image,
@@ -1556,14 +1584,14 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         return undefined
     }
 
-    async listNfts(rawWalletAddr: string): Promise<Nft[]> {
+    async listNfts(rawWalletAddr: string): Promise<INft[]> {
         const walletAddr = address(rawWalletAddr)
         const resp = await this.dasRpc()
             .getAssetsByOwner({
                 ownerAddress: walletAddr,
             })
             .send()
-        let result: Nft[] = []
+        let result: INft[] = []
 
         if ('result' in resp) {
             const assetsResp = resp.result
@@ -1572,7 +1600,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
                 const image = item.content.links?.['image'] as string | undefined
 
                 if (image !== undefined) {
-                    const nft: Nft = {
+                    const nft: INft = {
                         addr: item.id,
                         collection: collection,
                         image,
@@ -1649,6 +1677,28 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             if (accountInfo !== null) {
                 try {
                     ret.push(PlayerState.deserialize(base64ToUint8Array(accountInfo.data[0])))
+                    console.info('Found player profile %s', key)
+                } catch (_: any) {
+                    ret.push(undefined)
+                    console.warn('Skip invalid player profile %s', key)
+                }
+            } else {
+                ret.push(undefined)
+                console.warn('Player profile %s not exist', key)
+            }
+        }
+        return ret
+    }
+
+    async _getMultiServerStates(serverAccountKeys: Address[]): Promise<Array<ServerState | undefined>> {
+        const accounts = await this.rpc().getMultipleAccounts(serverAccountKeys).send()
+        const ret: Array<ServerState | undefined> = []
+        for (let i = 0; i < accounts.value.length; i++) {
+            const key = serverAccountKeys[i]
+            const accountInfo = accounts.value[i]
+            if (accountInfo !== null) {
+                try {
+                    ret.push(ServerState.deserialize(base64ToUint8Array(accountInfo.data[0])))
                     console.info('Found player profile %s', key)
                 } catch (_: any) {
                     ret.push(undefined)
@@ -1766,6 +1816,19 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
                 return resps.map((resp: any) => resp.signature)
             },
         }
+    }
+
+    // Ref: https://github.com/anza-xyz/wallet-standard/blob/master/packages/core/features/src/signMessage.ts
+    async signMessage(wallet: SolanaWalletAdapterWallet, message: Uint8Array): Promise<Uint8Array> {
+        const account = wallet.accounts[0]
+        console.info('XXX Account:', account)
+        console.info('XXX Message:', message)
+        console.info('XXX wallet.features[SolanaSignMessage]', wallet.features[SolanaSignMessage])
+        const resps = await wallet.features[SolanaSignMessage]!.signMessage({
+            account,
+            message,
+        })
+        return resps[0].signedMessage
     }
 }
 

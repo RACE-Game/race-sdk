@@ -1,6 +1,6 @@
 import { bcs } from '@mysten/bcs'
 import { Address, Parser } from './parser'
-import { ServerAccount } from '@race-foundation/sdk-core'
+import { IServerAccount } from '@race-foundation/sdk-core'
 
 const ServerSchema = bcs.struct('Server', {
     id: Address,
@@ -8,9 +8,9 @@ const ServerSchema = bcs.struct('Server', {
     endpoint: bcs.string(),
 })
 
-export const ServerParser: Parser<ServerAccount, typeof ServerSchema> = {
+export const ServerParser: Parser<IServerAccount, typeof ServerSchema> = {
     schema: ServerSchema,
-    transform: (input: typeof ServerSchema.$inferType): ServerAccount => {
+    transform: (input: typeof ServerSchema.$inferType): IServerAccount => {
         return {
             addr: input.id,
             endpoint: input.endpoint,

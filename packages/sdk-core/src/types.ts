@@ -1,4 +1,5 @@
-import { EntryType, Nft, Token } from './accounts'
+import { INft, IToken } from './accounts'
+import { IEntryType } from './entry-type'
 import { Message } from './message'
 import { ConnectionState } from './connection'
 import { GameEvent } from './events'
@@ -25,8 +26,8 @@ export type GameInfo = {
     gameAddr: string
     title: string
     maxPlayers: number
-    entryType: EntryType
-    token: Token
+    entryType: IEntryType
+    token: IToken
     tokenAddr: string
     bundleAddr: string
     data: Uint8Array
@@ -34,9 +35,10 @@ export type GameInfo = {
 }
 
 export type PlayerProfileWithPfp = {
-    pfp: Nft | undefined
+    pfp: INft | undefined
     addr: string
     nick: string
+    credentials: Uint8Array
 }
 
 export type EventCallbackOptions = {
