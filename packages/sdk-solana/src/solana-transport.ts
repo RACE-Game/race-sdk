@@ -1305,7 +1305,6 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             return undefined
         }
         const metadataState = Metadata.deserialize(metadataAccountData)
-        console.debug('Metadata of game bundle:', metadataState)
         let { uri, name } = metadataState.data
         // URI should contains the wasm property
         let resp = await fetch(trimString(uri))

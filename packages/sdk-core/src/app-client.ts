@@ -114,11 +114,14 @@ export class AppClient extends BaseClient {
             let startTime = new Date().getTime()
             console.info(`Player address: ${playerAddr}`)
 
+            console.info(`Fetch game account: ${gameAddr}`)
             const gameAccount = await transport.getGameAccount(gameAddr)
-            console.info('Game Account:', gameAccount)
+
             if (gameAccount === undefined) {
                 throw SdkError.gameAccountNotFound(gameAddr)
             }
+            console.info('Game account:', gameAccount)
+
 
             const transactorAddr = gameAccount.transactorAddr
             console.info(`Transactor address: ${transactorAddr}`)
@@ -129,6 +132,8 @@ export class AppClient extends BaseClient {
             let token: IToken | undefined = await transport.getToken(gameAccount.tokenAddr)
 
             const encryptor = new Encryptor()
+
+            console.info(`Fetch game bundle ${gameAccount.bundleAddr} and transactor account ${transactorAddr}`)
 
             const [gameBundle, transactorAccount] = await Promise.all([
                 getGameBundle(transport, storage, gameAccount.bundleAddr),
@@ -141,8 +146,13 @@ export class AppClient extends BaseClient {
             if (transactorAccount === undefined) {
                 throw SdkError.transactorAccountNotFound(transactorAddr)
             }
+
+            console.info('Game bundle:', gameBundle)
+            console.info('Transactor account:', transactorAccount)
+
             const decryptionCache = new DecryptionCache()
             const endpoint = transactorAccount.endpoint
+
             const connection = Connection.initialize(gameAddr, playerAddr, endpoint, encryptor)
             const profileLoader = new ProfileLoader(transport, storage, onProfile)
 
@@ -166,8 +176,6 @@ export class AppClient extends BaseClient {
                 }
             }
 
-            console.info('The onchain part of checkpoint:', gameAccount.checkpointOnChain)
-            console.info('The offchain part of checkpoint:', checkpointOffChain)
             let checkpoint
             if (checkpointOffChain !== undefined && gameAccount.checkpointOnChain !== undefined) {
                 checkpoint = Checkpoint.fromParts(checkpointOffChain, gameAccount.checkpointOnChain)
@@ -321,8 +329,12 @@ export class AppClient extends BaseClient {
      */
     async attachGame() {
         try {
+            console.info('Connecting to transactor')
             this.__connect()
+            console.info('Connected to transactor')
+            console.info('Establishing event subscription')
             this.__startSubscribe()
+            console.info('Event subscription Established')
         } catch (e) {
             console.error(this.__logPrefix + 'Attaching game failed', e)
             this.__invokeErrorCallback('attach-failed')
