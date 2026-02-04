@@ -539,9 +539,6 @@ export class Encryptor implements IEncryptor {
         for (const [idx, ciphertext] of ciphertextMap) {
             const secrets = secretMap.get(idx)
 
-            console.info('Ciphertext:', ciphertext)
-            console.info('Secrets: ', secrets)
-
             if (secrets === undefined) {
                 throw new Error('Missing secrets')
             } else {
