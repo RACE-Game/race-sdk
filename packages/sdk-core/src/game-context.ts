@@ -224,6 +224,10 @@ export class GameContext {
         })
     }
 
+    removeNode(nodeAddr: string) {
+        this.nodes = this.nodes.filter(n => n.addr !== nodeAddr)
+    }
+
     setAccessVersion(accessVersion: bigint) {
         this.versions.accessVersion = accessVersion
     }

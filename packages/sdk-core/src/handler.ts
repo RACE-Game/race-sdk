@@ -115,6 +115,9 @@ export class Handler implements IHandler {
             context.lock(addr, randomId, ciphertextsAndDigests)
         } else if (event instanceof Join) {
         } else if (event instanceof Leave) {
+            const { playerId } = event
+            const addr = context.idToAddr(playerId)
+            context.removeNode(addr)
         } else if (event instanceof GameStart) {
             context.status = 'Running'
             context.setNodeReady(context.accessVersion)
