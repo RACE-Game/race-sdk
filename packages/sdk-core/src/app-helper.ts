@@ -1,4 +1,4 @@
-import { GameAccount, Nft, Token, TokenBalance, RecipientAccount } from './accounts'
+import { IGameAccount, INft, IToken, TokenBalance, IRecipientAccount } from './accounts'
 import { CheckpointOffChain } from './checkpoint'
 import { SdkError } from './error'
 import { ResponseHandle, ResponseStream } from './response'
@@ -34,7 +34,7 @@ import {
 } from './transport'
 import { PlayerProfileWithPfp } from './types'
 import { getLatestCheckpoints } from './connection'
-import { IPublicKeyRaws } from './encryptor'
+import { generateCredentials, IPublicKeyRaws } from './encryptor'
 import { IStorage } from './storage'
 
 export type AppHelperInitOpts<W> = {
@@ -50,8 +50,21 @@ export type JoinOpts = {
     addr: string
     amount: bigint
     position?: number
-    keys: IPublicKeyRaws
-    createProfileIfNeeded?: boolean
+}
+
+export type CreateProfileOpts = {
+    nick: string
+    pfp?: string
+    secret: Uint8Array
+}
+
+export type UpdateProfileOpts = {
+    nick: string
+    pfp: string | undefined
+    secrets: Uint8Array
+    public_ec: Uint8Array
+    public_rsa: Uint8Array
+    salt: Uint8Array
 }
 
 export type DepositOpts = {
@@ -107,8 +120,8 @@ export class AppHelper<W> {
     /**
      * Adds a new slot to an existing recipient account.
      *
-     * @param wallet - The wallet adapter to sign the transaction.
-     * @param params - The parameters for adding the slot.
+     * @param wallet - Wallet adapter to sign the transaction.
+     * @param params - Parameters for adding the slot.
      * @returns A ResponseStream that emits the status of the transaction.
      */
     addRecipientSlot(
@@ -121,12 +134,34 @@ export class AppHelper<W> {
     }
 
     /**
+     * Prepare the secret for credentials.
+     *
+     * Usually it requires the user to sign a message with the wallet if it doesn't exist.
+     * This secret is required in profile creation.
+     *
+     * @param wallet - Wallet adapter to sign the message.
+     * @param storage - Storage to save the secret.
+     * @return Secret generated
+     */
+    async generateSecret(wallet: W, storage: IStorage): Promise<Uint8Array> {
+        const walletAddr = this.__transport.walletAddr(wallet)
+        const secret = await storage.getSecret(walletAddr)
+        if (!secret) {
+            const originalSecret = await this.__transport.getCredentialOriginSecret(wallet)
+            storage.cacheSecret(walletAddr, originalSecret)
+            return originalSecret
+        } else {
+            return secret
+        }
+    }
+
+    /**
      * Get the game account by game address.
      *
-     * @param addr - The address of game account
+     * @param addr - Address of game account
      * @returns An object of GameAccount or undefined when not found
      */
-    async getGame(addr: string): Promise<GameAccount | undefined> {
+    async getGame(addr: string): Promise<IGameAccount | undefined> {
         return await this.__transport.getGameAccount(addr)
     }
 
@@ -203,12 +238,12 @@ export class AppHelper<W> {
      */
     createProfile(
         wallet: W,
-        nick: string,
-        pfp?: string
+        params: CreateProfileOpts,
     ): ResponseStream<CreatePlayerProfileResponse, CreatePlayerProfileError> {
         const response = new ResponseHandle<CreatePlayerProfileResponse, CreatePlayerProfileError>()
 
-        this.__transport.createPlayerProfile(wallet, { nick, pfp }, response)
+
+        const resp = this.__transport.createPlayerProfile(wallet, params, response)
 
         return response.stream()
     }
@@ -260,7 +295,7 @@ export class AppHelper<W> {
      * @param gameAccounts
      * @returns The latest checkpoint from transactor or undefined when it's not available.
      */
-    async fetchLatestCheckpoints(gameAccounts: GameAccount[]): Promise<(CheckpointOffChain | undefined)[]> {
+    async fetchLatestCheckpoints(gameAccounts: IGameAccount[]): Promise<(CheckpointOffChain | undefined)[]> {
         const endpointToAddrs = new Map<string, string[]>()
         const addrToGameAccountIndex = new Map<string, number>()
 
@@ -340,9 +375,9 @@ export class AppHelper<W> {
         if (profile === undefined) return undefined
         if (profile.pfp !== undefined) {
             const pfp = await this.getNft(profile.pfp, storage)
-            return { nick: profile.nick, addr: profile.addr, pfp }
+            return { nick: profile.nick, addr: profile.addr, pfp, credentials: profile.credentials }
         } else {
-            return { nick: profile.nick, addr: profile.addr, pfp: undefined }
+            return { nick: profile.nick, addr: profile.addr, pfp: undefined, credentials: profile.credentials }
         }
     }
 
@@ -352,7 +387,7 @@ export class AppHelper<W> {
      * @param registrationAddrs - The addresses of registration accounts
      * @return A list of games
      */
-    async listGames(registrationAddrs: string[]): Promise<GameAccount[]> {
+    async listGames(registrationAddrs: string[]): Promise<IGameAccount[]> {
         return (
             await Promise.all(
                 registrationAddrs.map(async regAddr => {
@@ -374,11 +409,11 @@ export class AppHelper<W> {
      *
      * @return A list of token info.
      */
-    async listTokens(tokenAddrs: string[], storage?: IStorage): Promise<Token[]> {
+    async listTokens(tokenAddrs: string[], storage?: IStorage): Promise<IToken[]> {
         if (!storage) {
             return await this.__transport.listTokens(tokenAddrs)
         } else {
-            let tokens: Token[] = []
+            let tokens: IToken[] = []
             let cachedTokens = await storage.getTokens(tokenAddrs)
 
             for (const token of cachedTokens) {
@@ -388,7 +423,9 @@ export class AppHelper<W> {
             }
             const cachedAddrs = tokens.map(token => token.addr)
             const addrsToFetch = tokenAddrs.filter(addr => !cachedAddrs.includes(addr))
+
             const fetchedTokens = await this.__transport.listTokens(addrsToFetch)
+
             storage.cacheTokens(fetchedTokens)
             tokens.push(...fetchedTokens)
             return tokens
@@ -412,7 +449,7 @@ export class AppHelper<W> {
      *
      * @return A list of nfts.
      */
-    async listNfts(walletAddr: string, collection: string | undefined = undefined): Promise<Nft[]> {
+    async listNfts(walletAddr: string, collection: string | undefined = undefined): Promise<INft[]> {
         const nfts = await this.__transport.listNfts(walletAddr)
         if (collection === undefined) {
             return nfts
@@ -427,7 +464,7 @@ export class AppHelper<W> {
      * @param addr - The address of NFT
      * @param storage - The storage for caching
      */
-    async getNft(addr: string, storage?: IStorage): Promise<Nft | undefined> {
+    async getNft(addr: string, storage?: IStorage): Promise<INft | undefined> {
         if (!storage) {
             return await this.__transport.getNft(addr)
         } else {
@@ -455,16 +492,16 @@ export class AppHelper<W> {
         return response.stream()
     }
 
-    async getRecipient(recipientAddr: string): Promise<RecipientAccount | undefined> {
+    async getRecipient(recipientAddr: string): Promise<IRecipientAccount | undefined> {
         return await this.__transport.getRecipient(recipientAddr)
     }
 
     /**
-     * Initiates a join request for a game session. It exports a public key and
-     * sends a join request with required parameters like game address, amount,
-     * position, and whether to create a profile if needed. Returns a stream to
-     * handle the response of the join operation, which can either be a success
-     * (JoinResponse) or an error (JoinError).
+     * Initiates a join request for a game session. Send a join
+     * request with required parameters like game address, amount,
+     * position, and whether to create a profile if needed. Returns a
+     * stream to handle the response of the join operation, which can
+     * either be a success (JoinResponse) or an error (JoinError).
      *
      * @param {JoinOpts} params - Options and parameters to configure the join request.
      * @returns {ResponseStream<JoinResponse, JoinError>} A stream to handle the
@@ -479,14 +516,13 @@ export class AppHelper<W> {
                 gameAddr: params.addr,
                 amount: params.amount,
                 position: params.position || 0,
-                verifyKey: params.keys.ec,
-                createProfileIfNeeded: params.createProfileIfNeeded,
             },
             response
         )
 
         return response.stream()
     }
+
 
     deposit(wallet: W, params: DepositOpts): ResponseStream<DepositResponse, DepositError> {
         const response = new ResponseHandle<DepositResponse, DepositError>()
@@ -513,8 +549,8 @@ export class AppHelper<W> {
      * @param recipientAddr | recipientAccount - The address of a recipient account.
      */
     previewClaim(wallet: W, recipientAddr: string): Promise<ClaimPreview[]>
-    previewClaim(wallet: W, recipientAccount: RecipientAccount): Promise<ClaimPreview[]>
-    async previewClaim(wallet: W, recipient: RecipientAccount | string): Promise<ClaimPreview[]> {
+    previewClaim(wallet: W, recipientAccount: IRecipientAccount): Promise<ClaimPreview[]>
+    async previewClaim(wallet: W, recipient: IRecipientAccount | string): Promise<ClaimPreview[]> {
         try {
             if (typeof recipient === 'string') {
                 const r = await this.__transport.getRecipient(recipient)
@@ -534,7 +570,7 @@ export class AppHelper<W> {
                     totalClaimed += share.claimAmount
                     totalWeights += share.weights
 
-                    if (share.owner.kind === 'assigned' && share.owner.addr === this.__transport.walletAddr(wallet)) {
+                    if (share.owner.kind === 'Assigned' && share.owner.addr === this.__transport.walletAddr(wallet)) {
                         weights += share.weights
                         claimed += share.claimAmount
                     }

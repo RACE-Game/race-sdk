@@ -3,7 +3,7 @@ import { GameEvent } from './events'
 import { deserialize, enums, field, serialize, struct } from '@race-foundation/borsh'
 import { arrayBufferToBase64, base64ToUint8Array } from './utils'
 import { BroadcastFrame } from './broadcast-frames'
-import { CheckpointOffChain, CheckpointOffChainList } from './checkpoint'
+import { CheckpointOffChain, CheckpointOffChainOrNull, CheckpointOffChainList } from './checkpoint'
 
 let __WebSocket_impl: (new (url: string | URL) => WebSocket) | undefined = undefined
 
@@ -23,10 +23,7 @@ function createWebSocket(endpoint: string): WebSocket {
 
 export type ConnectionState = 'disconnected' | 'connected' | 'reconnected' | 'closed'
 
-export type AttachResponse = 'success' | 'game-not-loaded'
-
 type Method =
-    | 'attach_game'
     | 'submit_event'
     | 'exit_game'
     | 'subscribe_event'
@@ -34,11 +31,11 @@ type Method =
     | 'get_state'
     | 'ping'
     | 'get_checkpoint'
+    | 'get_latest_checkpoint'
     | 'get_latest_checkpoints'
 
 interface IAttachGameParams {
     signer: string
-    key: PublicKeyRaws
 }
 
 interface ISubscribeEventParams {
@@ -64,11 +61,8 @@ export type ConnectionSubscription = AsyncGenerator<ConnectionSubscriptionItem>
 export class AttachGameParams {
     @field('string')
     signer: string
-    @field(struct(PublicKeyRaws))
-    key: PublicKeyRaws
 
     constructor(fields: IAttachGameParams) {
-        this.key = fields.key
         this.signer = fields.signer
     }
 }
@@ -110,8 +104,6 @@ export class GetCheckpointParams {
 }
 
 export interface IConnection {
-    attachGame(params: AttachGameParams): Promise<AttachResponse>
-
     getState(): Promise<Uint8Array>
 
     getCheckpoint(params: GetCheckpointParams): Promise<CheckpointOffChain | undefined>
@@ -210,20 +202,17 @@ export class Connection implements IConnection {
         }
     }
 
-    async attachGame(params: AttachGameParams): Promise<AttachResponse> {
-        const req = makeReqNoSig(this.target, 'attach_game', params)
-        const resp: any = await this.requestXhr(req)
-        if (resp.error !== undefined) {
-            return 'game-not-loaded'
-        } else {
-            return 'success'
-        }
-    }
-
     async getState(): Promise<Uint8Array> {
         const req = makeReqNoSig(this.target, 'get_state', {})
         const resp: { result: string } = await this.requestXhr(req)
         return Uint8Array.from(JSON.parse(resp.result))
+    }
+
+    async getLatestCheckpoint(): Promise<CheckpointOffChain | undefined> {
+        const req = makeReqNoSig(this.target, 'get_latest_checkpoint', {})
+        const resp: { result: number[] | null } = await this.requestXhr(req)
+        if (!resp.result) return undefined
+        return CheckpointOffChainOrNull.deserialize(Uint8Array.from(resp.result)).checkpoint
     }
 
     async getCheckpoint(params: GetCheckpointParams): Promise<CheckpointOffChain | undefined> {
@@ -238,7 +227,8 @@ export class Connection implements IConnection {
             const req = await this.makeReq(this.target, 'submit_event', params)
             await this.requestXhr(req)
             return undefined
-        } catch (_: any) {
+        } catch (e: any) {
+            console.warn('Error in sending request:', e)
             return 'disconnected'
         }
     }
@@ -248,7 +238,8 @@ export class Connection implements IConnection {
             const req = await this.makeReq(this.target, 'submit_message', params)
             await this.requestXhr(req)
             return undefined
-        } catch (_: any) {
+        } catch (e: any) {
+            console.warn('Error in sending request:', e)
             return 'disconnected'
         }
     }
@@ -262,6 +253,7 @@ export class Connection implements IConnection {
 
     async exitGame(params: ExitGameParams): Promise<void> {
         const req = await this.makeReq(this.target, 'exit_game', {})
+        console.debug('exitGame:', req)
         await this.requestXhr(req)
         if (!params.keepConnection) this.disconnect()
     }
@@ -341,6 +333,7 @@ export class Connection implements IConnection {
             })
             if (resp.ok) {
                 const ret = await resp.json()
+                console.debug("Xhr response:", ret)
                 return ret
             } else {
                 throw Error('Transactor request failed:' + resp.json())
@@ -397,7 +390,7 @@ function makeReqAddrs(method: Method, addrs: string[]): string {
 
 export async function getLatestCheckpoints(
     transactorEndpoint: string,
-    addrs: string[]
+    addrs: string[],
 ): Promise<(CheckpointOffChain | undefined)[]> {
     const req = makeReqAddrs('get_latest_checkpoints', addrs)
     try {

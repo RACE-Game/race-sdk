@@ -21,6 +21,14 @@ export class NoEnoughPlayers extends HandleError {
 }
 
 @variant(2)
+export class NoEnoughServers extends HandleError {
+    constructor(_: any) {
+        super()
+        this.message = 'No enough servers'
+    }
+}
+
+@variant(3)
 export class InvalidPlayer extends HandleError {
     constructor(_: any) {
         super()
@@ -28,7 +36,7 @@ export class InvalidPlayer extends HandleError {
     }
 }
 
-@variant(3)
+@variant(4)
 export class CantLeave extends HandleError {
     constructor(_: any) {
         super()
@@ -36,7 +44,7 @@ export class CantLeave extends HandleError {
     }
 }
 
-@variant(4)
+@variant(5)
 export class InvalidAmount extends HandleError {
     constructor(_: any) {
         super()
@@ -85,10 +93,10 @@ export class SerializationError extends HandleError {
 }
 
 @variant(10)
-export class NoEnoughServers extends HandleError {
+export class SubGameWithoutCheckpointError extends HandleError {
     constructor(_: any) {
         super()
-        this.message = 'No enough servers'
+        this.message = 'No checkpoint for sub game'
     }
 }
 
@@ -99,6 +107,48 @@ export class InternalError extends HandleError {
     constructor(fields: { message: string }) {
         super()
         this.message = `Internal error: ${fields.message}`
+    }
+}
+
+@variant(12)
+export class InvalidDepositError extends HandleError {
+    constructor(_: any) {
+        super()
+        this.message = `Invalid deposit`
+    }
+}
+
+@variant(13)
+export class DuplicatedBridgeEventTargetError extends HandleError {
+    constructor(_: any) {
+        super()
+        this.message = `Duplicate Bridge event target`
+    }
+}
+
+@variant(14)
+export class RandomnessNotRevealedError extends HandleError {
+    constructor(_: any) {
+        super()
+        this.message = `Randomness not revealed`
+    }
+}
+
+@variant(15)
+export class AnswerNotAvailableError extends HandleError {
+    constructor(_: any) {
+        super()
+        this.message = `Answer not available`
+    }
+}
+
+@variant(16)
+export class IoError extends HandleError {
+    @field('string')
+    message: string
+    constructor(fields: { message: string }) {
+        super()
+        this.message = fields.message
     }
 }
 
@@ -137,5 +187,9 @@ export class SdkError extends Error {
 
     static malformedCheckpoint() {
         return new SdkError('Malformed checkpoint')
+    }
+
+    static missingCheckpoint() {
+        return new SdkError('Missing checkpoint')
     }
 }

@@ -1,4 +1,4 @@
-import { Nft } from './accounts'
+import { INft } from './accounts'
 import { IStorage } from './storage'
 import { ITransport } from './transport'
 import { PlayerProfileWithPfp, ProfileCallbackFunction } from './types'
@@ -32,7 +32,7 @@ export class ProfileLoader implements IProfileLoader {
         }
     }
 
-    async __getNft(addr: string): Promise<Nft | undefined> {
+    async __getNft(addr: string): Promise<INft | undefined> {
         if (!this.__storage) {
             return await this.__transport.getNft(addr)
         } else {
@@ -50,38 +50,52 @@ export class ProfileLoader implements IProfileLoader {
 
     async load(playerAddrs: string[]) {
         // 1, try to query the profiles those are already loaded
-        let addrsToLoad: string[] = []
+        let addrsToLoad: string[] = [] // For those not cached
         for (const addr of playerAddrs) {
             const profile = this.__profiles.get(addr)
-            if (profile === undefined) {
+            if (!profile) {
                 addrsToLoad.push(addr)
             } else {
                 this.notify(profile)
             }
         }
 
-        // 2, try to serve the profile from storage
-        if (this.__storage) {
-            for (const addr of addrsToLoad) {
-                const profile = await this.__storage.getProfile(addr)
-                if (profile !== undefined) {
-                    this.notify(profile)
+        if (addrsToLoad.length > 0) {
+            // 2, try to serve the profile from storage
+            let addrsToLoad2: string[] = [] // For those never loaded
+            if (this.__storage) {
+                for (const addr of addrsToLoad) {
+                    const profile = await this.__storage.getProfile(addr)
+                    // Make sure that credentials are available
+                    if (profile && profile.credentials) {
+                        this.__profiles.set(addr, profile)
+                        this.notify(profile)
+                    } else {
+                        addrsToLoad2.push(addr)
+                    }
                 }
+            } else {
+                addrsToLoad2 = addrsToLoad // When storage is not available.
             }
-        }
 
-        // 3, load rest profiles
-        const profiles = await this.__transport.listPlayerProfiles(addrsToLoad)
-        for (const profile of profiles) {
-            if (profile) {
-                let nft = undefined
-                if (profile.pfp) {
-                    nft = await this.__getNft(profile.pfp)
-                }
-                const profileWithPfp = { pfp: nft, nick: profile.nick, addr: profile.addr }
-                this.notify(profileWithPfp)
-                if (this.__storage) {
-                    this.__storage.cacheProfile(profileWithPfp)
+            // 3, load rest profiles
+            if (addrsToLoad2.length > 0) {
+                const profiles = await this.__transport.listPlayerProfiles(addrsToLoad2)
+                for (const profile of profiles) {
+                    if (profile) {
+                        let nft = undefined
+                        if (profile.pfp) {
+                            nft = await this.__getNft(profile.pfp)
+                        }
+                        const profileWithPfp = { pfp: nft, nick: profile.nick, addr: profile.addr, credentials: profile.credentials }
+                        this.__profiles.set(profile.addr, profileWithPfp)
+                        this.notify(profileWithPfp)
+
+                        // Cache the profile if we are not on Facade.
+                        if (this.__storage && this.__transport.chain !== 'facade') {
+                            this.__storage.cacheProfile(profileWithPfp)
+                        }
+                    }
                 }
             }
         }

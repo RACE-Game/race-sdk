@@ -1,5 +1,5 @@
 import { array, deserialize, enums, field, option, serialize, struct } from '@race-foundation/borsh'
-import { EntryType, GameAccount } from './accounts'
+import { IGameAccount } from './accounts'
 import { Fields } from './types'
 
 /**
@@ -10,6 +10,13 @@ export class InitAccount {
     readonly maxPlayers: number
     @field('u8-array')
     readonly data: Uint8Array
+
+    static fromGameAccount(gameAccount: IGameAccount) {
+        return new InitAccount({
+            maxPlayers: gameAccount.maxPlayers,
+            data: gameAccount.data,
+        })
+    }
 
     constructor(fields: Fields<InitAccount>) {
         this.maxPlayers = fields.maxPlayers

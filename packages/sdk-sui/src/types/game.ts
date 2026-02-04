@@ -1,15 +1,15 @@
 import { bcs } from '@mysten/bcs'
 import { Address, Parser } from './parser'
 import {
-    Bonus,
-    PlayerBalance,
+    IBonus,
+    IPlayerBalance,
     CheckpointOnChain,
     EntryLock,
-    EntryType,
-    GameAccount,
-    PlayerJoin,
-    PlayerDeposit,
-    ServerJoin,
+    IEntryType,
+    IGameAccount,
+    IPlayerJoin,
+    IPlayerDeposit,
+    IServerJoin,
     VoteType,
     ENTRY_LOCKS,
     VOTE_TYPES,
@@ -23,9 +23,9 @@ const BonusSchema = bcs.struct('BonusSchema', {
     amount: bcs.u64(),
 })
 
-const BonusParser: Parser<Bonus, typeof BonusSchema> = {
+const BonusParser: Parser<IBonus, typeof BonusSchema> = {
     schema: BonusSchema,
-    transform: (input: typeof BonusSchema.$inferType): Bonus => {
+    transform: (input: typeof BonusSchema.$inferType): IBonus => {
         return {
             identifier: input.identifier,
             tokenAddr: input.tokenAddr,
@@ -39,9 +39,9 @@ const PlayerBalanceSchema = bcs.struct('PlayerBalance', {
     balance: bcs.u64(),
 })
 
-const PlayerBalanceParser: Parser<PlayerBalance, typeof PlayerBalanceSchema> = {
+const PlayerBalanceParser: Parser<IPlayerBalance, typeof PlayerBalanceSchema> = {
     schema: PlayerBalanceSchema,
-    transform: (input: typeof PlayerBalanceSchema.$inferType): PlayerBalance => {
+    transform: (input: typeof PlayerBalanceSchema.$inferType): IPlayerBalance => {
         return {
             playerId: BigInt(input.playerId),
             balance: BigInt(input.balance),
@@ -70,9 +70,9 @@ const EntryTypeSchema = bcs.enum('EntryTypeSchema', {
     Disabled: null,
 })
 
-const EntryTypeParser: Parser<EntryType, typeof EntryTypeSchema> = {
+const EntryTypeParser: Parser<IEntryType, typeof EntryTypeSchema> = {
     schema: EntryTypeSchema,
-    transform: (input: typeof EntryTypeSchema.$inferType): EntryType => {
+    transform: (input: typeof EntryTypeSchema.$inferType): IEntryType => {
         if (input.$kind === 'Cash') {
             return {
                 minDeposit: BigInt(input.Cash.min_deposit),
@@ -90,7 +90,7 @@ const EntryTypeParser: Parser<EntryType, typeof EntryTypeSchema> = {
                 kind: 'gating',
             }
         } else {
-            return { kind: 'disabled' }
+            return { kind: 'Disabled' }
         }
     },
 }
@@ -113,7 +113,6 @@ const GameSchema = bcs.struct('Game', {
             addr: Address,
             position: bcs.u16(),
             accessVersion: bcs.u64(),
-            verifyKey: bcs.string(),
         })
     ),
     deposits: bcs.vector(
@@ -130,7 +129,6 @@ const GameSchema = bcs.struct('Game', {
             addr: Address,
             endpoint: bcs.string(),
             accessVersion: bcs.u64(),
-            verifyKey: bcs.string(),
         })
     ),
     balance: bcs.u64(),
@@ -152,9 +150,9 @@ const GameSchema = bcs.struct('Game', {
 })
 
 // Transform function to convert from BCS to the TypeScript type
-export const GameAccountParser: Parser<GameAccount, typeof GameSchema> = {
+export const GameAccountParser: Parser<IGameAccount, typeof GameSchema> = {
     schema: GameSchema,
-    transform: (input: typeof GameSchema.$inferType): GameAccount => {
+    transform: (input: typeof GameSchema.$inferType): IGameAccount => {
         console.info('input.checkpointOnChain =>', input.checkpointOnChain)
         console.info('input.transactorAddr =>', input.transactorAddr)
 
@@ -170,7 +168,6 @@ export const GameAccountParser: Parser<GameAccount, typeof GameSchema> = {
                 addr: player.addr,
                 position: player.position,
                 accessVersion: BigInt(player.accessVersion),
-                verifyKey: player.verifyKey,
             })),
             deposits: Array.from(input.deposits).map(deposit => ({
                 addr: deposit.addr,
@@ -183,7 +180,6 @@ export const GameAccountParser: Parser<GameAccount, typeof GameSchema> = {
                 addr: server.addr,
                 endpoint: server.endpoint,
                 accessVersion: BigInt(server.accessVersion),
-                verifyKey: server.verifyKey,
             })),
             transactorAddr: input.transactorAddr ?? undefined,
             votes: Array.from(input.votes).map(vote => ({

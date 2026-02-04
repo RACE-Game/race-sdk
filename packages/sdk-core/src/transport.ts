@@ -1,18 +1,18 @@
 import {
-    GameAccount,
-    GameBundle,
-    ServerAccount,
+    IGameAccount,
+    IGameBundle,
+    IServerAccount,
     VoteType,
-    RegistrationAccount,
-    Nft,
-    Token,
-    RecipientAccount,
-    EntryType,
+    IRegistrationAccount,
+    INft,
+    IToken,
+    IRecipientAccount,
     TokenBalance,
-    PlayerProfile,
+    IPlayerProfile,
 } from './accounts'
 import { ResponseHandle } from './response'
 import { Result } from './types'
+import { IEntryType } from './entry-type'
 
 export type SendTransactionResult<Sig> = Result<Sig, any>
 
@@ -35,7 +35,7 @@ export type CreateGameAccountParams = {
     bundleAddr: string
     tokenAddr: string
     maxPlayers: number
-    entryType: EntryType
+    entryType: IEntryType
     registrationAddr: string
     recipientAddr: string
     data: Uint8Array
@@ -60,8 +60,6 @@ export type JoinParams = {
     gameAddr: string
     amount: bigint
     position: number
-    verifyKey: string
-    createProfileIfNeeded?: boolean
 }
 
 export type JoinError =
@@ -103,12 +101,13 @@ export type VoteParams = {
 }
 
 export type CreatePlayerProfileParams = {
+    secret: Uint8Array
     nick: string
     pfp?: string
 }
 
 export type CreatePlayerProfileResponse = {
-    profile: PlayerProfile
+    profile: IPlayerProfile
     signature: string
 }
 
@@ -219,6 +218,8 @@ export type AddRecipientSlotError =
 export interface ITransport<W = never> {
     walletAddr(wallet: W): string
 
+    get chain(): string
+
     createGameAccount(
         wallet: W,
         params: CreateGameAccountParams,
@@ -281,31 +282,35 @@ export interface ITransport<W = never> {
 
     unregisterGame(wallet: W, params: UnregisterGameParams, resp: ResponseHandle): Promise<void>
 
-    getGameAccount(addr: string): Promise<GameAccount | undefined>
+    getGameAccount(addr: string): Promise<IGameAccount | undefined>
 
-    listGameAccounts(addrs: string[]): Promise<GameAccount[]>
+    listGameAccounts(addrs: string[]): Promise<IGameAccount[]>
 
-    getGameBundle(addr: string): Promise<GameBundle | undefined>
+    getGameBundle(addr: string): Promise<IGameBundle | undefined>
 
-    getPlayerProfile(addr: string): Promise<PlayerProfile | undefined>
+    getPlayerProfile(addr: string): Promise<IPlayerProfile | undefined>
 
-    listPlayerProfiles(addrs: string[]): Promise<Array<PlayerProfile | undefined>>
+    listPlayerProfiles(addrs: string[]): Promise<Array<IPlayerProfile | undefined>>
 
-    getServerAccount(addr: string): Promise<ServerAccount | undefined>
+    listServerAccounts(addrs: string[]): Promise<Array<IServerAccount | undefined>>
 
-    getRegistration(addr: string): Promise<RegistrationAccount | undefined>
+    getServerAccount(addr: string): Promise<IServerAccount | undefined>
 
-    getRecipient(addr: string): Promise<RecipientAccount | undefined>
+    getRegistration(addr: string): Promise<IRegistrationAccount | undefined>
+
+    getRecipient(addr: string): Promise<IRecipientAccount | undefined>
 
     getTokenDecimals(addr: string): Promise<number | undefined>
 
-    getToken(addr: string): Promise<Token | undefined>
+    getToken(addr: string): Promise<IToken | undefined>
 
-    getNft(addr: string): Promise<Nft | undefined>
+    getNft(addr: string): Promise<INft | undefined>
 
-    listTokens(tokenAddrs: string[]): Promise<Token[]>
+    listTokens(tokenAddrs: string[]): Promise<IToken[]>
 
     listTokenBalance(walletAddr: string, tokenAddrs: string[]): Promise<TokenBalance[]>
 
-    listNfts(walletAddr: string): Promise<Nft[]>
+    listNfts(walletAddr: string): Promise<INft[]>
+
+    getCredentialOriginSecret(wallet: W): Promise<Uint8Array>
 }

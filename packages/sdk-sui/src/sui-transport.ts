@@ -8,18 +8,18 @@ import {
     CreateGameAccountParams,
     CreatePlayerProfileParams,
     DepositParams,
-    GameAccount,
-    GameBundle,
-    Nft,
-    Token,
+    IGameAccount,
+    IGameBundle,
+    INft,
+    IToken,
     ITransport,
     JoinParams,
-    PlayerProfile,
-    RecipientAccount,
+    IPlayerProfile,
+    IRecipientAccount,
     RecipientClaimParams,
     RegisterGameParams,
-    RegistrationAccount,
-    ServerAccount,
+    IRegistrationAccount,
+    IServerAccount,
     UnregisterGameParams,
     ResponseHandle,
     CreateGameResponse,
@@ -100,6 +100,10 @@ export class SuiTransport implements ITransport<WalletAdapter> {
         console.log('SuiTransport', url)
         this.suiClient = new SuiClient({ url })
         this.packageId = packageId
+    }
+
+    get chain(): string {
+        return 'sui'
     }
 
     walletAddr(wallet: WalletAdapter): string {
@@ -255,7 +259,7 @@ export class SuiTransport implements ITransport<WalletAdapter> {
         }
     }
 
-    async getPlayerProfile(addr: string): Promise<PlayerProfile | undefined> {
+    async getPlayerProfile(addr: string): Promise<IPlayerProfile | undefined> {
         const resp = await this.suiClient.getOwnedObjects({
             owner: addr,
             filter: {
@@ -269,7 +273,7 @@ export class SuiTransport implements ITransport<WalletAdapter> {
         return parseObjectData(parseFirstObjectResponse(resp), PlayerPorfileParser)
     }
 
-    async listPlayerProfiles(addrs: string[]): Promise<Array<PlayerProfile | undefined>> {
+    async listPlayerProfiles(addrs: string[]): Promise<Array<IPlayerProfile | undefined>> {
         return await Promise.all(addrs.map(addr => this.getPlayerProfile(addr)))
     }
 
@@ -286,15 +290,14 @@ export class SuiTransport implements ITransport<WalletAdapter> {
         params: JoinParams,
         resp: ResponseHandle<JoinResponse, JoinError>
     ): Promise<void> {
-        const { gameAddr, amount, position, verifyKey, createProfileIfNeeded = false } = params
+        const { gameAddr, amount, position } = params
 
         const suiClient = this.suiClient
 
         const playerProfile = await this.getPlayerProfile(this.walletAddr(wallet))
 
-        if (playerProfile === undefined && createProfileIfNeeded) {
-            let res = new ResponseHandle<CreatePlayerProfileResponse, CreatePlayerProfileError>()
-            await this.createPlayerProfile(wallet, { nick: this.walletAddr(wallet).substring(0, 6) }, res)
+        if (playerProfile === undefined) {
+            throw new Error('Profile not exist')
         }
 
         // get game object for token info and object ref
@@ -363,7 +366,6 @@ export class SuiTransport implements ITransport<WalletAdapter> {
                 transaction.sharedObjectRef(gameAccountObjRef),
                 transaction.pure.u16(position),
                 transaction.pure.u64(amount),
-                transaction.pure.string(verifyKey),
                 payment,
             ],
             typeArguments: [game.tokenAddr],
@@ -630,7 +632,7 @@ export class SuiTransport implements ITransport<WalletAdapter> {
     unregisterGame(_wallet: WalletAdapter, _params: UnregisterGameParams, _resp: ResponseHandle): Promise<void> {
         throw new Error('Method not implemented.')
     }
-    async getGameAccount(addr: string): Promise<GameAccount | undefined> {
+    async getGameAccount(addr: string): Promise<IGameAccount | undefined> {
         const suiClient = this.suiClient
         const resp: SuiObjectResponse = await suiClient.getObject({
             id: addr,
@@ -643,7 +645,7 @@ export class SuiTransport implements ITransport<WalletAdapter> {
         return parseObjectData(parseSingleObjectResponse(resp), GameAccountParser)
     }
 
-    async listGameAccounts(addrs: string[]): Promise<GameAccount[]> {
+    async listGameAccounts(addrs: string[]): Promise<IGameAccount[]> {
         let ret = []
         for (const addr of addrs) {
             const gameAccount = await this.getGameAccount(addr)
@@ -654,7 +656,7 @@ export class SuiTransport implements ITransport<WalletAdapter> {
         return ret
     }
 
-    async getGameBundle(addr: string): Promise<GameBundle | undefined> {
+    async getGameBundle(addr: string): Promise<IGameBundle | undefined> {
         const suiClient = this.suiClient
         const resp: SuiObjectResponse = await suiClient.getObject({
             id: addr,
@@ -666,7 +668,7 @@ export class SuiTransport implements ITransport<WalletAdapter> {
         return parseObjectData(parseSingleObjectResponse(resp), GameBundleParser)
     }
 
-    async getServerAccount(addr: string): Promise<ServerAccount | undefined> {
+    async getServerAccount(addr: string): Promise<IServerAccount | undefined> {
         const resp = await this.suiClient.getOwnedObjects({
             owner: addr,
             filter: { StructType: getServerStructType(this.packageId) },
@@ -675,7 +677,7 @@ export class SuiTransport implements ITransport<WalletAdapter> {
         return parseObjectData(parseFirstObjectResponse(resp), ServerParser)
     }
 
-    async getRegistration(addr: string): Promise<RegistrationAccount | undefined> {
+    async getRegistration(addr: string): Promise<IRegistrationAccount | undefined> {
         const suiClient = this.suiClient
         const resp: SuiObjectResponse = await suiClient.getObject({
             id: addr,
@@ -687,7 +689,7 @@ export class SuiTransport implements ITransport<WalletAdapter> {
         return parseObjectData(parseSingleObjectResponse(resp), RegistrationAccountParser)
     }
 
-    async getRecipient(addr: string): Promise<RecipientAccount | undefined> {
+    async getRecipient(addr: string): Promise<IRecipientAccount | undefined> {
         const suiClient = this.suiClient
         const resp: SuiObjectResponse = await suiClient.getObject({
             id: addr,
@@ -702,11 +704,11 @@ export class SuiTransport implements ITransport<WalletAdapter> {
     async getTokenDecimals(addr: string): Promise<number | undefined> {
         return this.getToken(addr).then(token => token?.decimals)
     }
-    async getToken(addr: string): Promise<Token | undefined> {
+    async getToken(addr: string): Promise<IToken | undefined> {
         const suiClient = this.suiClient
         const tokenMetadata = await suiClient.getCoinMetadata({ coinType: addr })
         if (!tokenMetadata) return undefined
-        const token: Token = {
+        const token: IToken = {
             addr: addr,
             icon: tokenMetadata.iconUrl || SUI_ICON_URL,
             name: tokenMetadata.name,
@@ -716,7 +718,7 @@ export class SuiTransport implements ITransport<WalletAdapter> {
         return token
     }
 
-    async getNft(addr: string): Promise<Nft | undefined> {
+    async getNft(addr: string): Promise<INft | undefined> {
         const suiClient = this.suiClient
         const objectResponse: SuiObjectResponse = await suiClient.getObject({
             id: addr,
@@ -755,11 +757,11 @@ export class SuiTransport implements ITransport<WalletAdapter> {
         return undefined
     }
 
-    async listTokens(tokenAddrs: string[]): Promise<Token[]> {
+    async listTokens(tokenAddrs: string[]): Promise<IToken[]> {
         const promises = tokenAddrs.map(async addr => {
             return await this.getToken(addr)
         })
-        let tokens = (await Promise.all(promises)).filter((t): t is Token => t !== undefined)
+        let tokens = (await Promise.all(promises)).filter((t): t is IToken => t !== undefined)
         return tokens
     }
 
@@ -772,7 +774,7 @@ export class SuiTransport implements ITransport<WalletAdapter> {
             .filter(t => tokenAddrs.includes(t.addr))
     }
 
-    async listNfts(walletAddr: string): Promise<Nft[]> {
+    async listNfts(walletAddr: string): Promise<INft[]> {
         const suiClient = this.suiClient
         const tokenMetadata = await suiClient.getOwnedObjects({ owner: walletAddr })
         if (!tokenMetadata) return []
@@ -811,7 +813,7 @@ export class SuiTransport implements ITransport<WalletAdapter> {
                 }
                 return undefined
             })
-            .filter((obj: Nft | undefined): obj is Nft => obj !== undefined)
+            .filter((obj: INft | undefined): obj is INft => obj !== undefined)
         return nfts
     }
     recipientClaim(
