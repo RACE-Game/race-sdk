@@ -172,13 +172,13 @@ export class Handler implements IHandler {
 
         switch (newEffectSize) {
             case 0:
-                throw new Error('GameBundle: Serializing effect failed')
+                throw new Error('WASM game bundle: Serializing effect failed')
             case 1:
                 console.warn('Effect:', effect)
-                throw new Error('GameBundle: Deserializing effect failed')
+                throw new Error('WASM game bundle: Deserializing effect failed')
             case 2:
                 console.warn('Event:', initAccount)
-                throw new Error('GameBundle: Deserializing init account failed')
+                throw new Error('WASM game bundle: Deserializing init account failed')
         }
 
         const data = new Uint8Array(mem.buffer)
@@ -221,13 +221,13 @@ export class Handler implements IHandler {
         const newEffectSize: number = handleEvent(effectSize, eventSize)
         switch (newEffectSize) {
             case 0:
-                throw new Error('GameBundle: Serializing effect failed')
+                throw new Error('WASM game bundle: Serializing effect failed')
             case 1:
                 console.warn('Effect:', effect)
-                throw new Error('GameBundle: Deserializing effect failed')
+                throw new Error('WASM game bundle: Deserializing effect failed')
             case 2:
-                console.warn('Effect:', event)
-                throw new Error('GameBundle: Deserializing event failed')
+                console.warn('Event:', event)
+                throw new Error('WASM game bundle: Deserializing event failed')
         }
         const data = new Uint8Array(mem.buffer)
         const newEffectBytes = data.slice(1, newEffectSize + 1)

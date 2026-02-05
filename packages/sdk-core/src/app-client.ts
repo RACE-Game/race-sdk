@@ -133,8 +133,6 @@ export class AppClient extends BaseClient {
 
             const encryptor = new Encryptor()
 
-            console.info(`Fetch game bundle ${gameAccount.bundleAddr} and transactor account ${transactorAddr}`)
-
             const [gameBundle, transactorAccount] = await Promise.all([
                 getGameBundle(transport, storage, gameAccount.bundleAddr),
                 transport.getServerAccount(transactorAddr),
@@ -374,21 +372,26 @@ export class AppClient extends BaseClient {
 export async function getGameBundle<W>(transport: ITransport<W>, storage: IStorage | undefined, bundleAddr: string): Promise<IGameBundle> {
     let gameBundle = undefined
 
-    if (storage) {
+    if (storage && transport.chain !== 'facade') {
+        console.info(`Get game bundle: ${bundleAddr} from cache`)
         gameBundle = await storage.getBundle(bundleAddr)
         if (gameBundle) {
             return gameBundle
         }
     }
 
-    gameBundle = await transport.getGameBundle(bundleAddr)
-    console.debug('Game bundle:', gameBundle)
+    if (gameBundle === undefined) {
+        console.info(`Fetch game bundle: ${bundleAddr}`)
+        gameBundle = await transport.getGameBundle(bundleAddr)
+    }
 
     if (!gameBundle) {
         throw SdkError.gameBundleNotFound(bundleAddr)
     }
 
-    if (storage) storage.cacheBundle(gameBundle)
+    if (storage && transport.chain !== 'facade') {
+        storage.cacheBundle(gameBundle)
+    }
     return gameBundle
 }
 

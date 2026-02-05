@@ -39,8 +39,6 @@ interface IEventKind {
 export class GamePlayer {
     @field('u64')
     id!: bigint
-    @field('u16')
-    position!: number
     constructor(fields: Fields<GamePlayer>) {
         Object.assign(this, fields)
     }
