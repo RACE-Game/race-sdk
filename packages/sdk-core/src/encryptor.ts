@@ -177,7 +177,7 @@ export async function generateRsaKeypair(): Promise<CryptoKeyPair> {
     return await subtle().generateKey(
         {
             name: 'RSA-OAEP',
-            modulusLength: 512,
+            modulusLength: 2048,
             publicExponent: publicExponent,
             hash: 'SHA-256',
         },
@@ -385,6 +385,20 @@ export class Encryptor implements IEncryptor {
     constructor() {
         this.#privateKey = undefined
         this.#publicKeys = new Map()
+    }
+
+    static async create(_: string, __?: IStorage): Promise<Encryptor> {
+        const encryptor = new Encryptor()
+        encryptor.#privateKey = await NodePrivateKey.initialize()
+        return encryptor
+    }
+
+    async exportPublicKey(): Promise<IPublicKeyRaws> {
+        if (!this.#privateKey) throw new Error('No credential available for public key export')
+        return {
+            rsa: await exportRsaPublicKey(this.#privateKey.rsa.publicKey),
+            ec: await exportEcPublicKey(this.#privateKey.ec.publicKey),
+        }
     }
 
     async importCredentials(originalSecret: Uint8Array, addr: string, credentials: Credentials): Promise<void> {
