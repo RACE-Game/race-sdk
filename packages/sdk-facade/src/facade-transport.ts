@@ -37,6 +37,7 @@ import {
 } from '@race-foundation/sdk-core'
 import { deserialize } from '@race-foundation/borsh'
 import { FacadeWallet } from './facade-wallet'
+import { FacadeGuestAuthClient } from './guest-client'
 
 interface JoinInstruction {
     playerAddr: string
@@ -134,6 +135,10 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
 
     constructor(url: string = 'http://localhost:12002') {
         this.#url = url
+    }
+
+    createGuestAuthClient(): FacadeGuestAuthClient {
+        return new FacadeGuestAuthClient(this.#url)
     }
 
     get chain(): string {

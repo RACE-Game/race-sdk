@@ -1,1 +1,9 @@
-../config/tsconfig.esm.json
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../config/tsconfig.esm.json",
+  "compilerOptions": {
+    "outDir": "./lib/esm",
+    "esModuleInterop": true
+  },
+  "include": ["src/**/*"]
+}
