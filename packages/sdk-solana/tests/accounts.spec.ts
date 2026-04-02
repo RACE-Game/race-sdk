@@ -2,41 +2,46 @@ import { assert } from 'chai';
 import {
   GameReg,
   GameState,
-  PlayerJoin,
+  PlayerBalance,
+  PlayerDeposit,
   PlayerState,
   RegistryState,
   ServerJoin,
   ServerState,
   Vote,
 } from '../src/accounts';
-import { PublicKey } from '@solana/web3.js';
 import { REG_ACCOUNT_DATA } from './account_data';
 import { EntryTypeCash } from '@race-foundation/sdk-core';
+import { address } from '@solana/kit';
+
+const ADDR_1 = address('11111111111111111111111111111111');
+const ADDR_2 = address('So11111111111111111111111111111111111111112');
+const ADDR_3 = address('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
+const ADDR_4 = address('C3u1cTJGKP5XzPCvLgQydGWE7aR3x3o5KL8YooFfY4RN');
+const ADDR_5 = address('SysvarRent111111111111111111111111111111111');
 
 describe('Test account data serialization', () => {
   it('PlayerState', () => {
     let state = new PlayerState({
-      isInitialized: true,
+      version: 2,
       nick: '16-char_nickname',
-      pfpKey: PublicKey.default,
+      pfpKey: ADDR_1,
+      credentials: Uint8Array.of(1, 2, 3),
     });
-    let buf = Buffer.from([
-      1, 16, 0, 0, 0, 49, 54, 45, 99, 104, 97, 114, 95, 110, 105, 99, 107, 110, 97, 109, 101, 1, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 72, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    ]);
+    let buf = state.serialize();
     let deserialized = PlayerState.deserialize(buf);
+    assert.equal(state.version, deserialized.version);
     assert.equal(state.nick, deserialized.nick);
     assert.deepStrictEqual(state.pfpKey, deserialized.pfpKey);
-    assert.equal(state.isInitialized, deserialized.isInitialized);
+    assert.deepStrictEqual(state.credentials, deserialized.credentials);
   });
 
   it('PlayerState with no pfp', () => {
     let state = new PlayerState({
-      isInitialized: true,
+      version: 2,
       nick: 'Alice',
       pfpKey: undefined,
+      credentials: Uint8Array.of(),
     });
     let buf = state.serialize();
     let deserialized = PlayerState.deserialize(buf);
@@ -55,18 +60,18 @@ describe('Test account data serialization', () => {
       isInitialized: true,
       isPrivate: false,
       size: 100,
-      ownerKey: PublicKey.unique(),
+      ownerKey: ADDR_1,
       games: [
         new GameReg({
-          gameKey: PublicKey.unique(),
+          gameKey: ADDR_2,
           title: 'Game A',
-          bundleKey: PublicKey.unique(),
+          bundleKey: ADDR_3,
           regTime: BigInt(1000),
         }),
         new GameReg({
-          gameKey: PublicKey.unique(),
+          gameKey: ADDR_4,
           title: 'Game B',
-          bundleKey: PublicKey.unique(),
+          bundleKey: ADDR_5,
           regTime: BigInt(2000),
         }),
       ],
@@ -76,35 +81,32 @@ describe('Test account data serialization', () => {
     assert.deepStrictEqual(state, deserialized);
   });
 
-  // TODO: Fix this
-  // it('GameState deserialize', () => {
-  //   let deserialized = GameState.deserialize(Buffer.from(ACCOUNT_DATA));
-  // });
-
   it('GameState', () => {
     let state = new GameState({
       isInitialized: true,
-      version: "0.2.2",
+      version: '0.2.2',
       title: 'test game name',
-      bundleKey: PublicKey.unique(),
-      stakeKey: PublicKey.unique(),
-      ownerKey: PublicKey.unique(),
-      tokenKey: PublicKey.unique(),
-      transactorKey: PublicKey.unique(),
+      bundleKey: ADDR_1,
+      stakeKey: ADDR_2,
+      ownerKey: ADDR_3,
+      tokenKey: ADDR_4,
+      transactorKey: ADDR_5,
       accessVersion: BigInt(1),
       settleVersion: BigInt(2),
       maxPlayers: 10,
-      players: [
-        new PlayerJoin({
-          key: PublicKey.unique(),
-          balance: BigInt(100),
+      playersRegAccount: ADDR_1,
+      deposits: [
+        new PlayerDeposit({
+          key: ADDR_2,
+          amount: BigInt(100),
           accessVersion: BigInt(1),
-          position: 0,
+          settleVersion: BigInt(2),
+          status: 0,
         }),
       ],
       servers: [
         new ServerJoin({
-          key: PublicKey.unique(),
+          key: ADDR_3,
           endpoint: 'http://foo.bar',
           accessVersion: BigInt(2),
         }),
@@ -113,8 +115,8 @@ describe('Test account data serialization', () => {
       data: Uint8Array.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]),
       votes: [
         new Vote({
-          voterKey: PublicKey.unique(),
-          voteeKey: PublicKey.unique(),
+          voterKey: ADDR_4,
+          voteeKey: ADDR_5,
           voteType: 0,
         }),
       ],
@@ -123,8 +125,16 @@ describe('Test account data serialization', () => {
         minDeposit: BigInt(100),
         maxDeposit: BigInt(100),
       }),
-      recipientAddr: PublicKey.unique(),
+      recipientAddr: ADDR_2,
       checkpoint: Uint8Array.of(1, 2, 3, 4),
+      entryLock: 0,
+      bonuses: [],
+      balances: [
+        new PlayerBalance({
+          playerId: BigInt(1),
+          balance: BigInt(100),
+        }),
+      ],
     });
     let buf = state.serialize();
     let deserialized = GameState.deserialize(buf);
@@ -134,9 +144,10 @@ describe('Test account data serialization', () => {
   it('ServerState', () => {
     let state = new ServerState({
       isInitialized: true,
-      key: PublicKey.unique(),
-      ownerKey: PublicKey.unique(),
+      key: ADDR_1,
+      ownerKey: ADDR_2,
       endpoint: 'http://foo.bar',
+      credentials: Uint8Array.of(1, 2, 3),
     });
     let buf = state.serialize();
     let deserialized = ServerState.deserialize(buf);

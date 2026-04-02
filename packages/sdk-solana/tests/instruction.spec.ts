@@ -4,9 +4,9 @@ import { EntryTypeCash } from '@race-foundation/sdk-core';
 
 describe('Test instruction serialization', () => {
   it('CreatePlayerProfile', () => {
-    const data = new CreatePlayerProfileData('Alice');
+    const data = new CreatePlayerProfileData('Alice', Uint8Array.of(1, 2, 3));
     const serialized = data.serialize();
-    const expected = Buffer.from([3, 5, 0, 0, 0, 65, 108, 105, 99, 101]);
+    const expected = Buffer.from([3, 5, 0, 0, 0, 65, 108, 105, 99, 101, 3, 0, 0, 0, 1, 2, 3]);
     assert.deepStrictEqual(serialized, expected);
   });
 
@@ -54,11 +54,16 @@ describe('Test instruction serialization', () => {
   });
 
   it('JoinGame', () => {
-    const data = new JoinGameData(1000n, 0n, 2, 'key0');
-    const serialized = data.serialize();
-    const expected = Buffer.from([
-      10, 232, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 4, 0, 0, 0, 107, 101, 121, 48,
-    ]);
+    const data = new JoinGameData({
+      amount: 1000n,
+      accessVersion: 0n,
+      settleVersion: 2n,
+      position: 4,
+    });
+    const serialized = Array.from(data.serialize());
+    const expected = [
+      10, 232, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 4, 0,
+    ];
     assert.deepStrictEqual(serialized, expected);
   });
 });

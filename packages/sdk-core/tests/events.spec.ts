@@ -114,7 +114,6 @@ describe('Serialization', () => {
             players: [
                 new GamePlayer({
                     id: 1n,
-                    position: 1,
                 }),
             ],
         })
