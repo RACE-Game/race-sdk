@@ -209,7 +209,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         const walletAccount = wallet.accounts[0]
 
         const payer = this.useTransactionSendingSigner(wallet)
-        const { title, bundleAddr, tokenAddr, sponsorPlayerSlots } = params
+        const { title, bundleKey, tokenAddr, sponsorPlayerSlots } = params
         if (title.length > NAME_LEN) {
             return response.failed('invalid-title')
         }
@@ -263,7 +263,6 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             console.info('Game uses SPL as token, use dedicated stake account:', stakeAccountKey)
         }
 
-        const bundleKey = address(bundleAddr)
         const createGame = instruction.createGameAccount({
             ownerKey: payer.address,
             gameAccountKey: gameAccount.address,
@@ -1293,31 +1292,31 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             return undefined
         }
     }
-    async getGameBundle(addr: string): Promise<IGameBundle | undefined> {
-        const mintKey = address(addr)
-        const [metadataKey] = await getProgramDerivedAddress({
-            programAddress: METAPLEX_PROGRAM_ID,
-            seeds: ['metadata', getBase58Encoder().encode(METAPLEX_PROGRAM_ID), getBase58Encoder().encode(mintKey)],
-        })
-
-        const metadataAccountData = await this._getFinalizedBase64AccountData(metadataKey)
-        if (metadataAccountData === undefined) {
-            return undefined
-        }
-        const metadataState = Metadata.deserialize(metadataAccountData)
-        let { uri, name } = metadataState.data
-        // URI should contains the wasm property
-        let resp = await fetch(trimString(uri))
-        let json = await resp.json()
-        let files: any[] = json['properties']['files']
-        let wasm_file = files.find(f => f['type'] == 'application/wasm')
-        return {
-            addr,
-            uri: wasm_file['uri'],
-            name: trimString(name),
-            data: new Uint8Array(0),
-        }
-    }
+    // async getGameBundle(addr: string): Promise<IGameBundle | undefined> {
+    //     const mintKey = address(addr)
+    //     const [metadataKey] = await getProgramDerivedAddress({
+    //         programAddress: METAPLEX_PROGRAM_ID,
+    //         seeds: ['metadata', getBase58Encoder().encode(METAPLEX_PROGRAM_ID), getBase58Encoder().encode(mintKey)],
+    //     })
+    //
+    //     const metadataAccountData = await this._getFinalizedBase64AccountData(metadataKey)
+    //     if (metadataAccountData === undefined) {
+    //         return undefined
+    //     }
+    //     const metadataState = Metadata.deserialize(metadataAccountData)
+    //     let { uri, name } = metadataState.data
+    //     // URI should contains the wasm property
+    //     let resp = await fetch(trimString(uri))
+    //     let json = await resp.json()
+    //     let files: any[] = json['properties']['files']
+    //     let wasm_file = files.find(f => f['type'] == 'application/wasm')
+    //     return {
+    //         addr,
+    //         uri: wasm_file['uri'],
+    //         name: trimString(name),
+    //         data: new Uint8Array(0),
+    //     }
+    // }
     async getPlayerProfile(addr: string): Promise<IPlayerProfile | undefined> {
         const playerKey = address(addr)
 

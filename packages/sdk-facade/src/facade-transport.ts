@@ -63,7 +63,7 @@ interface CreateGameAccountInstruction {
     walletAddr: string
     gameAddr: string
     title: string
-    bundleAddr: string
+    bundleKey: string
     tokenAddr: string
     maxPlayers: number
     minDeposit?: bigint
@@ -317,11 +317,11 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
         }
         return ret
     }
-    async getGameBundle(addr: string): Promise<GameBundle | undefined> {
-        const data: Uint8Array | undefined = await this.fetchState('get_game_bundle', [addr])
-        if (data === undefined) return undefined
-        return deserialize(GameBundle, data)
-    }
+    // async getGameBundle(addr: string): Promise<GameBundle | undefined> {
+    //     const data: Uint8Array | undefined = await this.fetchState('get_game_bundle', [addr])
+    //     if (data === undefined) return undefined
+    //     return deserialize(GameBundle, data)
+    // }
     async getPlayerProfile(addr: string): Promise<PlayerProfile | undefined> {
         const data: Uint8Array | undefined = await this.fetchState('get_profile', [addr])
         if (data === undefined) return undefined

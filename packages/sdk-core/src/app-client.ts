@@ -114,7 +114,7 @@ export class AppClient extends BaseClient {
             let startTime = new Date().getTime()
             console.info(`Player address: ${playerAddr}`)
 
-            console.info(`Fetch game account: ${gameAddr}`)
+            console.info(`Fetching game account: ${gameAddr}`)
             const gameAccount = await transport.getGameAccount(gameAddr)
 
             if (gameAccount === undefined) {
@@ -134,7 +134,7 @@ export class AppClient extends BaseClient {
             const encryptor = new Encryptor()
 
             const [gameBundle, transactorAccount] = await Promise.all([
-                getGameBundle(transport, storage, gameAccount.bundleAddr),
+                getGameBundle(transport, storage, gameAccount.bundleKey),
                 transport.getServerAccount(transactorAddr),
             ])
 
@@ -261,13 +261,13 @@ export class AppClient extends BaseClient {
                 console.info('Sub Game:', subGame)
             }
 
-            const bundleAddr = subGame.bundleAddr
+            const bundleKey = subGame.bundleKey
 
             const decryptionCache = new DecryptionCache()
             const playerAddr = this.__playerAddr
 
 
-            const gameBundle = await getGameBundle(this.__transport, this.__storage, bundleAddr)
+            const gameBundle = await getGameBundle(this.__transport, this.__storage, bundleKey)
             const connection = Connection.initialize(addr, playerAddr, this.__endpoint, this.__encryptor)
             const client = new Client(playerAddr, this.__encryptor, connection)
 
@@ -369,24 +369,29 @@ export class AppClient extends BaseClient {
 
 // Miscellaneous
 
-export async function getGameBundle<W>(transport: ITransport<W>, storage: IStorage | undefined, bundleAddr: string): Promise<IGameBundle> {
+export async function getGameBundle<W>(transport: ITransport<W>, storage: IStorage | undefined, bundleKey: string): Promise<IGameBundle> {
+
     let gameBundle = undefined
 
     if (storage && transport.chain !== 'facade') {
-        console.info(`Get game bundle: ${bundleAddr} from cache`)
-        gameBundle = await storage.getBundle(bundleAddr)
+        console.info(`Get game bundle: ${bundleKey} from cache`)
+        gameBundle = await storage.getBundle(bundleKey)
         if (gameBundle) {
             return gameBundle
         }
+    } else {
+        console.info(`Skip bundle cache before we are on facade`)
     }
 
     if (gameBundle === undefined) {
-        console.info(`Fetch game bundle: ${bundleAddr}`)
-        gameBundle = await transport.getGameBundle(bundleAddr)
+        console.info(`Fetching game bundle: ${bundleKey}`)
+        let response = await fetch(bundleKey)
+        let data = new Uint8Array(await response.arrayBuffer())
+        gameBundle = { key: bundleKey, data }
     }
 
     if (!gameBundle) {
-        throw SdkError.gameBundleNotFound(bundleAddr)
+        throw SdkError.gameBundleNotFound(bundleKey)
     }
 
     if (storage && transport.chain !== 'facade') {
@@ -402,7 +407,7 @@ export function makeGameInfo(gameAccount: IGameAccount, token: IToken): GameInfo
         entryType: gameAccount.entryType,
         maxPlayers: gameAccount.maxPlayers,
         tokenAddr: gameAccount.tokenAddr,
-        bundleAddr: gameAccount.bundleAddr,
+        bundleKey: gameAccount.bundleKey,
         data: gameAccount.data,
         dataLen: gameAccount.dataLen,
         token,

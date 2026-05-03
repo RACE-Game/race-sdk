@@ -48,13 +48,13 @@ export interface IGameRegistration {
     readonly title: string
     readonly addr: string
     readonly regTime: bigint
-    readonly bundleAddr: string
+    readonly bundleKey: string
 }
 
 export interface IGameAccount {
     readonly addr: string
     readonly title: string
-    readonly bundleAddr: string
+    readonly bundleKey: string
     readonly tokenAddr: string
     readonly ownerAddr: string
     readonly settleVersion: bigint
@@ -83,9 +83,7 @@ export interface IServerAccount {
 }
 
 export interface IGameBundle {
-    readonly addr: string
-    readonly uri: string
-    readonly name: string
+    readonly key: string
     readonly data: Uint8Array
 }
 

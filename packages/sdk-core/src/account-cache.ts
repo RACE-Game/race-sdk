@@ -7,7 +7,7 @@ import { IGameAccount } from './accounts'
  */
 export interface GameAccountCache {
     addr: string
-    bundleAddr: string
+    bundleKey: string
     tokenAddr: string
     ownerAddr: string
     accessVersion: number
@@ -19,7 +19,7 @@ export interface GameAccountCache {
 export function makeGameAccountCache(gameAccount: IGameAccount): GameAccountCache {
     return {
         addr: gameAccount.addr,
-        bundleAddr: gameAccount.bundleAddr,
+        bundleKey: gameAccount.bundleKey,
         accessVersion: Number(gameAccount.accessVersion),
         settleVersion: Number(gameAccount.settleVersion),
         tokenAddr: gameAccount.tokenAddr,

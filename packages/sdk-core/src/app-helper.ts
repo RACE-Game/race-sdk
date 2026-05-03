@@ -349,15 +349,17 @@ export class AppHelper<W> {
      * Downloading the game bundle takes a few seconds, by caching
      * them in advance, loading is faster.
      */
-    async cacheBundles(bundleAddrs: string[], storage: IStorage) {
-        for (const addr of bundleAddrs) {
-            if (!await storage.getBundle(addr)) {
-                console.debug(`Cache game bundle: ${addr}`)
-                const gameBundle = await this.__transport.getGameBundle(addr)
+    async cacheBundles(bundleKeys: string[], storage: IStorage) {
+        for (const key of bundleKeys) {
+            if (!await storage.getBundle(key)) {
+                console.debug(`Cache game bundle: ${key}`)
+                const response = await fetch(key)
+                const data = new Uint8Array(await response.arrayBuffer())
+                const gameBundle = { key, data }
                 if (gameBundle) {
                     storage.cacheBundle(gameBundle)
                 } else {
-                    throw SdkError.gameBundleNotFound(addr)
+                    throw SdkError.gameBundleNotFound(key)
                 }
             }
         }

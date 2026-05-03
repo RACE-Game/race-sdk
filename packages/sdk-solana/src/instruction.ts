@@ -81,6 +81,8 @@ export class CreateGameAccountData extends Serialize {
     maxPlayers: number = 0
     @field(enums(AEntryType))
     entryType!: AEntryType
+    @field('string')
+    bundleKey!: string
     @field('u8-array')
     data: Uint8Array = Uint8Array.from([])
 
@@ -272,7 +274,7 @@ export type CreateGameOptions = {
     stakeAccountKey: Address
     recipientAccountKey: Address
     mint: Address
-    gameBundleKey: Address
+    gameBundleKey: string
     title: string
     maxPlayers: number
     entryType: IEntryType
@@ -314,8 +316,9 @@ export function registerGame(opts: RegisterGameOptions): IInstruction {
 export function createGameAccount(opts: CreateGameOptions): IInstruction {
     const params = new CreateGameAccountData({
         title: opts.title,
-        entryType: AEntryType.from(opts.entryType),
         maxPlayers: opts.maxPlayers,
+        entryType: AEntryType.from(opts.entryType),
+        bundleKey: opts.gameBundleKey,
         data: opts.data,
     })
     console.debug('Build CreateGameAccount instruction with:', params)
@@ -344,10 +347,6 @@ export function createGameAccount(opts: CreateGameOptions): IInstruction {
             },
             {
                 address: TOKEN_PROGRAM_ADDRESS,
-                role: AccountRole.READONLY,
-            },
-            {
-                address: opts.gameBundleKey,
                 role: AccountRole.READONLY,
             },
             {

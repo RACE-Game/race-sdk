@@ -193,8 +193,8 @@ export class GameState {
     version!: string
     @field('string')
     title!: string
-    @field(publicKeyExt)
-    bundleKey!: Address
+    @field('string')
+    bundleKey!: string
     @field(publicKeyExt)
     stakeKey!: Address
     @field(publicKeyExt)
@@ -257,7 +257,7 @@ export class GameState {
         return {
             addr: addr,
             title: this.title,
-            bundleAddr: this.bundleKey,
+            bundleKey: this.bundleKey,
             ownerAddr: this.ownerKey,
             tokenAddr: this.tokenKey,
             transactorAddr: this.transactorKey,
@@ -305,8 +305,8 @@ export class GameReg {
     title!: string
     @field(publicKeyExt)
     gameKey!: Address
-    @field(publicKeyExt)
-    bundleKey!: Address
+    @field('string')
+    bundleKey!: string
     @field('u64')
     regTime!: bigint
     constructor(fields: Fields<GameReg>) {
@@ -316,7 +316,7 @@ export class GameReg {
         return {
             title: this.title,
             addr: this.gameKey,
-            bundleAddr: this.bundleKey,
+            bundleKey: this.bundleKey,
             regTime: this.regTime,
         }
     }

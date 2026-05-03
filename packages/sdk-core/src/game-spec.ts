@@ -10,7 +10,7 @@ export class GameSpec {
     readonly gameId!: number
 
     @field('string')
-    readonly bundleAddr!: string
+    readonly bundleKey!: string
 
     @field('u16')
     readonly maxPlayers!: number

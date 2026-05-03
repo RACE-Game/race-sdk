@@ -3,7 +3,7 @@ import { EncryptorExportedKeys } from './encryptor'
 import { PlayerProfileWithPfp } from './types'
 
 const DB_KEY = 'race-protocol'
-const DB_VER = 5
+const DB_VER = 6
 
 const STORE_TOKENS = 'tokens'
 const STORE_BUNDLES = 'bundles'
@@ -56,7 +56,7 @@ export class Storage implements IStorage {
 
             if (!db.objectStoreNames.contains(STORE_BUNDLES)) {
                 console.debug(`Storage: creating object store "bundles" in IndexedDB`)
-                db.createObjectStore(STORE_BUNDLES, { keyPath: 'addr' })
+                db.createObjectStore(STORE_BUNDLES, { keyPath: 'key' })
             }
 
             if (!db.objectStoreNames.contains(STORE_PROFILES)) {
@@ -203,12 +203,12 @@ export class Storage implements IStorage {
         }
     }
 
-    getBundle(bundleAddr: string): Promise<IGameBundle | undefined> {
+    getBundle(bundleKey: string): Promise<IGameBundle | undefined> {
         return new Promise((resolve, reject) => {
             const request = indexedDB.open(DB_KEY, DB_VER)
             request.onsuccess = _e => {
                 let db = request.result
-                let read = db.transaction(STORE_BUNDLES, 'readonly').objectStore(STORE_BUNDLES).get(bundleAddr)
+                let read = db.transaction(STORE_BUNDLES, 'readonly').objectStore(STORE_BUNDLES).get(bundleKey)
                 read.onsuccess = _e => {
                     const bundle = read.result as IGameBundle | undefined
                     resolve(bundle)

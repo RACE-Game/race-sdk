@@ -29,7 +29,7 @@ export type GameInfo = {
     entryType: IEntryType
     token: IToken
     tokenAddr: string
-    bundleAddr: string
+    bundleKey: string
     data: Uint8Array
     dataLen: number
 }

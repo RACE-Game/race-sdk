@@ -268,7 +268,7 @@ export class GameAccount {
     @field('string')
     readonly title!: string
     @field('string')
-    readonly bundleAddr!: string
+    readonly bundleKey!: string
     @field('string')
     readonly tokenAddr!: string
     @field('string')
@@ -314,7 +314,7 @@ export class GameAccount {
         return {
             addr: this.addr,
             title: this.title,
-            bundleAddr: this.bundleAddr,
+            bundleKey: this.bundleKey,
             ownerAddr: this.ownerAddr,
             tokenAddr: this.tokenAddr,
             transactorAddr: this.transactorAddr,
@@ -358,10 +358,10 @@ export class GameRegistration {
     readonly title!: string
     @field('string')
     readonly addr!: string
+    @field('string')
+    readonly bundleKey!: string
     @field('u64')
     readonly regTime!: bigint
-    @field('string')
-    readonly bundleAddr!: string
     constructor(fields: Fields<GameRegistration>) {
         Object.assign(this, fields)
     }

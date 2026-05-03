@@ -366,7 +366,7 @@ export class GameContext {
             this.subGames.push(new GameSpec({
                 gameAddr: this.gameSpec.gameAddr,
                 gameId: launchSubGame.gameId,
-                bundleAddr: launchSubGame.bundleAddr,
+                bundleKey: launchSubGame.bundleKey,
                 maxPlayers: launchSubGame.initAccount.maxPlayers,
                 entryType: new EntryTypeDisabled({}),
             }))

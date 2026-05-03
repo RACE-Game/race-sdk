@@ -32,7 +32,7 @@ export type RecipientSlotInit = {
 
 export type CreateGameAccountParams = {
     title: string
-    bundleAddr: string
+    bundleKey: string
     tokenAddr: string
     maxPlayers: number
     entryType: IEntryType
@@ -285,8 +285,6 @@ export interface ITransport<W = never> {
     getGameAccount(addr: string): Promise<IGameAccount | undefined>
 
     listGameAccounts(addrs: string[]): Promise<IGameAccount[]>
-
-    getGameBundle(addr: string): Promise<IGameBundle | undefined>
 
     getPlayerProfile(addr: string): Promise<IPlayerProfile | undefined>
 

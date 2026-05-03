@@ -138,7 +138,7 @@ export class LaunchSubGame {
     @field('usize')
     gameId!: number
     @field('string')
-    bundleAddr!: string
+    bundleKey!: string
     @field(struct(InitAccount))
     initAccount!: InitAccount
     constructor(fields: Fields<LaunchSubGame>) {
