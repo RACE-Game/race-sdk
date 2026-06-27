@@ -29,7 +29,7 @@
   "author": "Race Team",
   "license": "ISC",
   "devDependencies": {
-    "@solana/wallet-standard": "^1.1.4",
+    "@solana/wallet-standard": "^1.1.5",
     "@types/bn.js": "^5.1.1",
     "@types/chai": "^4.3.4",
     "@types/jest": "^29.5.0",
@@ -51,7 +51,7 @@
     "@solana-program/token": "^0.5.1",
     "@solana-program/compute-budget": "^0.8.0",
     "@solana/kit": "2.1.0",
-    "@wallet-standard/base": "^1.1.0"
+    "@wallet-standard/base": "^1.1.1"
   },
   "testDependencies": {
     "crypto": "1.0.1"
