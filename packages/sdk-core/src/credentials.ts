@@ -19,27 +19,27 @@ export const CREDENTIALS_MESSAGE = new TextEncoder().encode(RAW_CREDENTIALS_MESS
  */
 export class Credentials {
     @field('u8-array')
-    ecPublic!: Uint8Array
+    ecPublic!: Uint8Array<ArrayBuffer>
     @field('u8-array')
-    rsaPublic!: Uint8Array
+    rsaPublic!: Uint8Array<ArrayBuffer>
     @field('u8-array')
     salt!: Uint8Array
     @field('u8-array')
     iv!: Uint8Array
     @field('u8-array')
-    ecPrivateEnc!: Uint8Array
+    ecPrivateEnc!: Uint8Array<ArrayBuffer>
     @field('u8-array')
-    rsaPrivateEnc!: Uint8Array
+    rsaPrivateEnc!: Uint8Array<ArrayBuffer>
 
     constructor(fields: Fields<Credentials>) {
         Object.assign(this, fields)
     }
 
-    static deserialize(data: Uint8Array): Credentials {
+    static deserialize(data: Uint8Array<ArrayBuffer>): Credentials {
         return deserialize(Credentials, data)
     }
 
-    serialize(): Uint8Array {
+    serialize(): Uint8Array<ArrayBuffer> {
         return serialize(this)
     }
 }

@@ -55,16 +55,16 @@ export type JoinOpts = {
 export type CreateProfileOpts = {
     nick: string
     pfp?: string
-    secret: Uint8Array
+    secret: Uint8Array<ArrayBuffer>
 }
 
 export type UpdateProfileOpts = {
     nick: string
     pfp: string | undefined
-    secrets: Uint8Array
-    public_ec: Uint8Array
-    public_rsa: Uint8Array
-    salt: Uint8Array
+    secrets: Uint8Array<ArrayBuffer>
+    public_ec: Uint8Array<ArrayBuffer>
+    public_rsa: Uint8Array<ArrayBuffer>
+    salt: Uint8Array<ArrayBuffer>
 }
 
 export type DepositOpts = {

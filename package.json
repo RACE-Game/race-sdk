@@ -8,5 +8,8 @@
     "packages/sdk-facade",
     "packages/borsh"
   ],
-  "version": "0.1.0"
+  "version": "0.1.0",
+  "allowScripts": {
+    "utf-8-validate@6.0.6": true
+  }
 }

@@ -138,7 +138,7 @@ type TransactionMessageWithFeePayerAndBlockhashLifetime = TransactionMessage &
     ITransactionMessageWithFeePayer &
     TransactionMessageWithBlockhashLifetime
 
-function base64ToUint8Array(base64: string): Uint8Array {
+function base64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
     const rawBytes = atob(base64)
     const uint8Array = new Uint8Array(rawBytes.length)
     for (let i = 0; i < rawBytes.length; i++) {
@@ -181,7 +181,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         return wallet.accounts[0].address
     }
 
-    async getCredentialOriginSecret(wallet: SolanaWalletAdapterWallet): Promise<Uint8Array> {
+    async getCredentialOriginSecret(wallet: SolanaWalletAdapterWallet): Promise<Uint8Array<ArrayBuffer>> {
         const originSecret = await this.signMessage(wallet, CREDENTIALS_MESSAGE)
         return originSecret;
     }
@@ -825,7 +825,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     async _prepareCreatePlayerProfile(
         wallet: SolanaWalletAdapterWallet,
         params: CreatePlayerProfileParams
-    ): Promise<Result<{ ixs: IInstruction[]; profileKey: Address, credentials: Uint8Array }, CreatePlayerProfileError>> {
+    ): Promise<Result<{ ixs: IInstruction[]; profileKey: Address, credentials: Uint8Array<ArrayBuffer> }, CreatePlayerProfileError>> {
 
         const payer = this.useTransactionSendingSigner(wallet)
 
@@ -1712,7 +1712,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
 
     // This function returns the account data in Uint8Array which is parsed from base64 string
     // format.
-    async _getFinalizedBase64AccountData(addr: Address): Promise<Readonly<Uint8Array> | undefined> {
+    async _getFinalizedBase64AccountData(addr: Address): Promise<Readonly<Uint8Array<ArrayBuffer>> | undefined> {
         const value = (await this.rpc().getAccountInfo(addr, { commitment: 'finalized', encoding: 'base64' }).send())
             .value
         if (value == null) {
@@ -1817,7 +1817,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     }
 
     // Ref: https://github.com/anza-xyz/wallet-standard/blob/master/packages/core/features/src/signMessage.ts
-    async signMessage(wallet: SolanaWalletAdapterWallet, message: Uint8Array): Promise<Uint8Array> {
+    async signMessage(wallet: SolanaWalletAdapterWallet, message: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
         const account = wallet.accounts[0]
         console.info('XXX Account:', account)
         console.info('XXX Message:', message)
@@ -1826,7 +1826,7 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             account,
             message,
         })
-        return resps[0].signedMessage
+        return new Uint8Array(resps[0].signedMessage)
     }
 }
 

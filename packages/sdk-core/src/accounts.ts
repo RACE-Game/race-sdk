@@ -67,7 +67,7 @@ export interface IGameAccount {
     readonly unlockTime: bigint | undefined
     readonly maxPlayers: number
     readonly dataLen: number
-    readonly data: Uint8Array
+    readonly data: Uint8Array<ArrayBuffer>
     readonly entryType: IEntryType
     readonly recipientAddr: string
     readonly checkpointOnChain: CheckpointOnChain | undefined
@@ -79,19 +79,19 @@ export interface IGameAccount {
 export interface IServerAccount {
     readonly addr: string
     readonly endpoint: string
-    readonly credentials: Uint8Array
+    readonly credentials: Uint8Array<ArrayBuffer>
 }
 
 export interface IGameBundle {
     readonly key: string
-    readonly data: Uint8Array
+    readonly data: Uint8Array<ArrayBuffer>
 }
 
 export interface IPlayerProfile {
     readonly addr: string
     readonly nick: string
     readonly pfp: string | undefined
-    readonly credentials: Uint8Array
+    readonly credentials: Uint8Array<ArrayBuffer>
 }
 
 export interface IRegistrationAccount {

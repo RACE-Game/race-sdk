@@ -27,7 +27,7 @@ export class InitAccount {
         return serialize(InitAccount)
     }
 
-    static deserialize(data: Uint8Array) {
+    static deserialize(data: Uint8Array<ArrayBuffer>) {
         return deserialize(InitAccount, data)
     }
 }

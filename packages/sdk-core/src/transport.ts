@@ -38,7 +38,7 @@ export type CreateGameAccountParams = {
     entryType: IEntryType
     registrationAddr: string
     recipientAddr: string
-    data: Uint8Array
+    data: Uint8Array<ArrayBuffer>
     // Optional, the number of player fees to sponsor
     // Currently supported on Solana
     sponsorPlayerSlots?: number
@@ -101,7 +101,7 @@ export type VoteParams = {
 }
 
 export type CreatePlayerProfileParams = {
-    secret: Uint8Array
+    secret: Uint8Array<ArrayBuffer>
     nick: string
     pfp?: string
 }
@@ -310,5 +310,5 @@ export interface ITransport<W = never> {
 
     listNfts(walletAddr: string): Promise<INft[]>
 
-    getCredentialOriginSecret(wallet: W): Promise<Uint8Array>
+    getCredentialOriginSecret(wallet: W): Promise<Uint8Array<ArrayBuffer>>
 }

@@ -56,13 +56,11 @@ export class Handler implements IHandler {
                 }),
             },
         }
-        let initiatedSource
         if (gameBundle.data.length === 0) {
             throw new Error(`Game bundle is broken: ${gameBundle.key}`)
-        } else {
-            initiatedSource = await WebAssembly.instantiate(gameBundle.data, importObject)
         }
-        return new Handler(initiatedSource.instance, encryptor, client, decryptionCache)
+        const instance = await WebAssembly.instantiate(gameBundle.data, importObject)
+        return new Handler(instance.instance, encryptor, client, decryptionCache)
     }
 
     async handleEvent(context: GameContext, event: GameEvent): Promise<EventEffects> {

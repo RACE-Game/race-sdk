@@ -210,7 +210,7 @@ export class BaseClient {
     async submitEvent(arg: ICustomEvent | Uint8Array): Promise<void> {
         let raw = arg instanceof Uint8Array ? arg : arg.serialize()
         const id = this.__gameContext.addrToId(this.playerAddr)
-        const event = new Custom({ sender: id, raw })
+        const event = new Custom({ sender: id, raw: new Uint8Array(raw) })
         const connState = await this.__connection.submitEvent(
             new SubmitEventParams({
                 event,

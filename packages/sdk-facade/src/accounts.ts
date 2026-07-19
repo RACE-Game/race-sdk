@@ -156,7 +156,7 @@ export class ServerAccount {
     @field('string')
     readonly endpoint!: string
     @field('u8-array')
-    readonly credentials!: Uint8Array
+    readonly credentials!: Uint8Array<ArrayBuffer>
     constructor(fields: Fields<ServerAccount>) {
         Object.assign(this, fields)
     }
@@ -294,7 +294,7 @@ export class GameAccount {
     @field('u32')
     readonly dataLen!: number
     @field('u8-array')
-    readonly data!: Uint8Array
+    readonly data!: Uint8Array<ArrayBuffer>
     @field(enums(EntryType))
     readonly entryType!: EntryType
     @field('string')
@@ -391,7 +391,7 @@ export class PlayerProfile {
     @field(option('string'))
     readonly pfp: string | undefined
     @field('u8-array')
-    readonly credentials!: Uint8Array
+    readonly credentials!: Uint8Array<ArrayBuffer>
     constructor(fields: Fields<PlayerProfile>) {
         Object.assign(this, fields)
     }

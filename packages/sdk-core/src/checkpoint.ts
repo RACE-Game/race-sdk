@@ -24,7 +24,7 @@ export class CheckpointOnChain {
         Object.assign(this, fields)
     }
 
-    static fromRaw(raw: Uint8Array): CheckpointOnChain {
+    static fromRaw(raw: Uint8Array<ArrayBuffer>): CheckpointOnChain {
         return deserialize(CheckpointOnChain, raw)
     }
 }
@@ -43,7 +43,7 @@ export class CheckpointOffChain {
         Object.assign(this, fields)
     }
 
-    static deserialize(raw: Uint8Array): CheckpointOffChain {
+    static deserialize(raw: Uint8Array<ArrayBuffer>): CheckpointOffChain {
         return deserialize(CheckpointOffChain, raw)
     }
 }
@@ -56,7 +56,7 @@ export class CheckpointOffChainOrNull {
         Object.assign(this, fields)
     }
 
-    static deserialize(raw: Uint8Array): CheckpointOffChainOrNull {
+    static deserialize(raw: Uint8Array<ArrayBuffer>): CheckpointOffChainOrNull {
         return deserialize(CheckpointOffChainOrNull, raw)
     }
 }
@@ -69,7 +69,7 @@ export class CheckpointOffChainList {
         Object.assign(this, fields)
     }
 
-    static deserialize(raw: Uint8Array): CheckpointOffChainList {
+    static deserialize(raw: Uint8Array<ArrayBuffer>): CheckpointOffChainList {
         return deserialize(CheckpointOffChainList, raw)
     }
 }
@@ -108,7 +108,7 @@ export class Checkpoint {
         return checkpoint
     }
 
-    static fromRaw(raw: Uint8Array): Checkpoint {
+    static fromRaw(raw: Uint8Array<ArrayBuffer>): Checkpoint {
         if (raw.length === 0) {
             return Checkpoint.default()
         }

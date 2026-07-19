@@ -1,5 +1,5 @@
 import { makeid } from './utils'
-import { GameAccount, GameBundle, Nft, PlayerProfile, RegistrationAccount, ServerAccount } from './accounts'
+import { GameAccount, GameBundle, Nft, PlayerProfile, RecipientSlot, RegistrationAccount, ServerAccount } from './accounts'
 import * as RaceCore from '@race-foundation/sdk-core'
 import {
     ResponseHandle,
@@ -37,6 +37,7 @@ import {
 } from '@race-foundation/sdk-core'
 import { deserialize } from '@race-foundation/borsh'
 import { FacadeWallet } from './facade-wallet'
+import { IRecipientSlot } from '../../sdk-core/lib/types/accounts'
 
 interface JoinInstruction {
     playerAddr: string
@@ -269,7 +270,7 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
             return response.failed('recipient-not-found')
         }
 
-        if (recipient.slots.some(s => s.id === slot.id)) {
+        if (recipient.slots.some((s: IRecipientSlot) => s.id === slot.id)) {
             return response.failed('slot-id-exists')
         }
 
@@ -299,7 +300,7 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
         response.succeed({ signature })
     }
     async getGameAccount(addr: string): Promise<RaceCore.IGameAccount | undefined> {
-        const data: Uint8Array | undefined = await this.fetchState('get_account_info', [addr])
+        const data: Uint8Array<ArrayBuffer> | undefined = await this.fetchState('get_account_info', [addr])
         if (data === undefined) return undefined
         const gameAccount = deserialize(GameAccount, data).generalize()
         console.debug(`Got game account ${addr}:`, gameAccount)
@@ -323,7 +324,7 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
     //     return deserialize(GameBundle, data)
     // }
     async getPlayerProfile(addr: string): Promise<PlayerProfile | undefined> {
-        const data: Uint8Array | undefined = await this.fetchState('get_profile', [addr])
+        const data: Uint8Array<ArrayBuffer> | undefined = await this.fetchState('get_profile', [addr])
         if (data === undefined) return undefined
         return deserialize(PlayerProfile, data)
     }
@@ -331,7 +332,7 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
         return await Promise.all(addrs.map(addr => this.getPlayerProfile(addr)))
     }
     async getServerAccount(addr: string): Promise<ServerAccount | undefined> {
-        const data: Uint8Array | undefined = await this.fetchState('get_server_info', [addr])
+        const data: Uint8Array<ArrayBuffer> | undefined = await this.fetchState('get_server_info', [addr])
         if (data === undefined) return undefined
         return deserialize(ServerAccount, data)
     }
@@ -339,7 +340,7 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
         return await Promise.all(addrs.map(addr => this.getServerAccount(addr)))
     }
     async getRegistration(addr: string): Promise<RegistrationAccount | undefined> {
-        const data: Uint8Array | undefined = await this.fetchState('get_registration_info', [addr])
+        const data: Uint8Array<ArrayBuffer> | undefined = await this.fetchState('get_registration_info', [addr])
         if (data === undefined) return undefined
         return deserialize(RegistrationAccount, data)
     }
@@ -401,7 +402,7 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
         return 'facadesig'
     }
 
-    async fetchState(method: string, params: any): Promise<Uint8Array | undefined> {
+    async fetchState(method: string, params: any): Promise<Uint8Array<ArrayBuffer> | undefined> {
         const reqData = JSON.stringify({
             jsonrpc: '2.0',
             method,
@@ -427,7 +428,7 @@ export class FacadeTransport implements ITransport<FacadeWallet> {
         }
     }
 
-    async getCredentialOriginSecret(wallet: FacadeWallet): Promise<Uint8Array> {
+    async getCredentialOriginSecret(wallet: FacadeWallet): Promise<Uint8Array<ArrayBuffer>> {
         return hexToBuffer(this.walletAddr(wallet))
     }
 }

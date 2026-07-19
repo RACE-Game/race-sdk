@@ -21,7 +21,7 @@ export class VersionedData {
     subData!: Map<number, VersionedData>
 
     @field('u8-array')
-    handlerState!: Uint8Array
+    handlerState!: Uint8Array<ArrayBuffer>
 
     @field(option(struct(DispatchEvent)))
     dispatch!: DispatchEvent | undefined
@@ -44,7 +44,7 @@ export class VersionedData {
         })
     }
 
-    async sha(): Promise<Uint8Array> {
+    async sha(): Promise<Uint8Array<ArrayBuffer>> {
         const bs = await serialize(this);
         return sha256(bs);
     }

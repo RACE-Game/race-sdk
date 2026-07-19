@@ -40,7 +40,7 @@ export class PlayerState {
     @field(option(publicKeyExt))
     pfpKey?: Address
     @field('u8-array')
-    credentials!: Uint8Array
+    credentials!: Uint8Array<ArrayBuffer>
 
     constructor(fields: Fields<PlayerState>) {
         Object.assign(this, fields)
@@ -50,7 +50,7 @@ export class PlayerState {
         return serialize(this)
     }
 
-    static deserialize(data: Uint8Array): PlayerState {
+    static deserialize(data: Uint8Array<ArrayBuffer>): PlayerState {
         return deserialize(PlayerState, data)
     }
 
@@ -218,7 +218,7 @@ export class GameState {
     @field('u32')
     dataLen!: number
     @field('u8-array')
-    data!: Uint8Array
+    data!: Uint8Array<ArrayBuffer>
     @field(array(struct(Vote)))
     votes!: Vote[]
     @field(option('u64'))
@@ -228,7 +228,7 @@ export class GameState {
     @field(publicKeyExt)
     recipientAddr!: Address
     @field('u8-array')
-    checkpoint!: Uint8Array
+    checkpoint!: Uint8Array<ArrayBuffer>
     @field('u8')
     entryLock!: EntryLock
     @field(array(struct(Bonus)))
@@ -244,7 +244,7 @@ export class GameState {
         return serialize(this)
     }
 
-    static deserialize(data: Uint8Array): GameState {
+    static deserialize(data: Uint8Array<ArrayBuffer>): GameState {
         return deserialize(GameState, data)
     }
 
@@ -295,7 +295,7 @@ export class PlayersRegState {
     constructor(fields: Fields<PlayersRegState>) {
         Object.assign(this, fields)
     }
-    static deserialize(data: Uint8Array): PlayersRegState {
+    static deserialize(data: Uint8Array<ArrayBuffer>): PlayersRegState {
         return deserialize(PlayersRegState, data)
     }
 }
@@ -341,7 +341,7 @@ export class RegistryState {
         return serialize(this)
     }
 
-    static deserialize(data: Uint8Array): RegistryState {
+    static deserialize(data: Uint8Array<ArrayBuffer>): RegistryState {
         return deserialize(RegistryState, data)
     }
 
@@ -366,7 +366,7 @@ export class ServerState {
     @field('string')
     endpoint!: string
     @field('u8-array')
-    credentials!: Uint8Array
+    credentials!: Uint8Array<ArrayBuffer>
 
     constructor(fields: Fields<ServerState>) {
         Object.assign(this, fields)
@@ -376,7 +376,7 @@ export class ServerState {
         return serialize(this)
     }
 
-    static deserialize(data: Uint8Array): ServerState {
+    static deserialize(data: Uint8Array<ArrayBuffer>): ServerState {
         return deserialize(this, data)
     }
 
@@ -503,7 +503,7 @@ export class RecipientState {
         return serialize(this)
     }
 
-    static deserialize(data: Uint8Array): RecipientState {
+    static deserialize(data: Uint8Array<ArrayBuffer>): RecipientState {
         return deserialize(this, data)
     }
 

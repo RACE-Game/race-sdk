@@ -16,11 +16,9 @@
         devShell = pkgs.mkShell {
           nativeBuildInputs = with pkgs; [
             nodejs
-            just
-            nodePackages.typescript
-            nodePackages.typescript-language-server
-            nodePackages.prettier
-            zellij
+            typescript-language-server
+            prettier
+            gnumake
           ];
         };
       }

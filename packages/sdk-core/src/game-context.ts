@@ -65,7 +65,7 @@ export class GameContext {
     status: GameStatus
     nodes: INode[]
     dispatch: DispatchEvent | undefined
-    handlerState: Uint8Array
+    handlerState: Uint8Array<ArrayBuffer>
     balances: PlayerBalance[]
     timestamp: bigint
     randomStates: RandomState[]
@@ -408,7 +408,7 @@ export class GameContext {
         }
     }
 
-    async setHandlerState(state: Uint8Array) {
+    async setHandlerState(state: Uint8Array<ArrayBuffer>) {
         this.handlerState = state
     }
 

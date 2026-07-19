@@ -342,7 +342,7 @@ export function enums(enumClass: Function): EnumFieldType {
     return { kind: 'enum', value: enumClass }
 }
 
-export function serialize(obj: any): Uint8Array {
+export function serialize(obj: any): Uint8Array<ArrayBuffer> {
     const writer = new BinaryWriter()
     try {
         if (isVariantObject(obj)) {
@@ -365,12 +365,12 @@ export function serialize(obj: any): Uint8Array {
         }
         throw e
     }
-    return writer.toArray()
+    return new Uint8Array(writer.toArray())
 }
 
-export function deserialize<T>(enumClass: EnumClass<T>, data: Uint8Array): T
-export function deserialize<T>(ctor: Ctor<T>, data: Uint8Array): T
-export function deserialize<T>(classType: Ctor<T> | EnumClass<T>, data: Uint8Array): T {
+export function deserialize<T>(enumClass: EnumClass<T>, data: Uint8Array<ArrayBuffer>): T
+export function deserialize<T>(ctor: Ctor<T>, data: Uint8Array<ArrayBuffer>): T
+export function deserialize<T>(classType: Ctor<T> | EnumClass<T>, data: Uint8Array<ArrayBuffer>): T {
     const reader = new BinaryReader(data)
     try {
         if (isEnumClass(classType)) {

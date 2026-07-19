@@ -13,7 +13,8 @@ clean:
 
 node_modules/: $(DEPS)
 	@echo Install dependencies
-	npm i -ws
+	npm i --workspaces
+	touch node_modules
 
 check:
 	@echo make: Entering directory "'packages/$(PKG)'"

@@ -6,11 +6,11 @@ import { GameEvent } from './events'
 import { GameContextSnapshot } from './game-context-snapshot'
 import { TxState } from './tx-state'
 
-export type Ciphertext = Uint8Array
+export type Ciphertext = Uint8Array<ArrayBuffer>
 
-export type Secret = Uint8Array
+export type Secret = Uint8Array<ArrayBuffer>
 
-export type Digest = Uint8Array
+export type Digest = Uint8Array<ArrayBuffer>
 
 export type Fields<T> = { [K in keyof T as T[K] extends Function ? never : K]: T[K] }
 
@@ -38,12 +38,16 @@ export type PlayerProfileWithPfp = {
     pfp: INft | undefined
     addr: string
     nick: string
-    credentials: Uint8Array
+    credentials: Uint8Array<ArrayBuffer>
 }
 
 export type EventCallbackOptions = {
     isCheckpoint: boolean
 }
+
+export type InitLogCallbackFunction = (
+    log: string, level: 'info' | 'error'
+) => void
 
 export type EventCallbackFunction = (
     context: GameContextSnapshot,

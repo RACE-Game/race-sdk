@@ -141,7 +141,7 @@ export class Metadata implements IMetadata {
     constructor(fields: IMetadata) {
         Object.assign(this, fields)
     }
-    static deserialize(data: Uint8Array): Metadata {
+    static deserialize(data: Uint8Array<ArrayBuffer>): Metadata {
         return deserialize(Metadata, new Uint8Array(data.buffer))
     }
 }

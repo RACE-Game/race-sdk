@@ -25,11 +25,11 @@ export type EventKind =
     | 'SubGameReady'
 
 export interface ICustomEvent {
-    serialize(): Uint8Array
+    serialize(): Uint8Array<ArrayBuffer>
 }
 
 export interface IBridgeEvent {
-    serialize(): Uint8Array
+    serialize(): Uint8Array<ArrayBuffer>
 }
 
 interface IEventKind {
@@ -69,7 +69,7 @@ export class Random extends SecretShare {
     @field('usize')
     index!: number
     @field('u8-array')
-    secret!: Uint8Array
+    secret!: Uint8Array<ArrayBuffer>
     constructor(fields: Fields<Random>) {
         super()
         Object.assign(this, fields)
@@ -84,7 +84,7 @@ export class Answer extends SecretShare {
     @field('usize')
     decisionId!: number
     @field('u8-array')
-    secret!: Uint8Array
+    secret!: Uint8Array<ArrayBuffer>
     constructor(fields: Fields<Answer>) {
         super()
         Object.assign(this, fields)
@@ -103,7 +103,7 @@ export class Custom extends GameEvent implements IEventKind {
     @field('u64')
     sender!: bigint
     @field('u8-array')
-    raw!: Uint8Array
+    raw!: Uint8Array<ArrayBuffer>
     constructor(fields: Fields<Custom>) {
         super()
         Object.assign(this, fields)
@@ -158,7 +158,7 @@ export class Mask extends GameEvent implements IEventKind {
     @field('usize')
     randomId!: number
     @field(array('u8-array'))
-    ciphertexts!: Uint8Array[]
+    ciphertexts!: Uint8Array<ArrayBuffer>[]
     constructor(fields: Fields<Mask>) {
         super()
         Object.assign(this, fields)
@@ -171,9 +171,9 @@ export class Mask extends GameEvent implements IEventKind {
 
 export class CiphertextAndDigest {
     @field('u8-array')
-    ciphertext!: Uint8Array
+    ciphertext!: Uint8Array<ArrayBuffer>
     @field('u8-array')
-    digest!: Uint8Array
+    digest!: Uint8Array<ArrayBuffer>
     constructor(fields: Fields<CiphertextAndDigest>) {
         Object.assign(this, fields)
     }
@@ -339,9 +339,9 @@ export class AnswerDecision extends GameEvent implements IEventKind {
     @field('usize')
     decisionId!: number
     @field('u8-array')
-    ciphertext!: Uint8Array
+    ciphertext!: Uint8Array<ArrayBuffer>
     @field('u8-array')
-    digest!: Uint8Array
+    digest!: Uint8Array<ArrayBuffer>
     constructor(fields: Fields<AnswerDecision>) {
         super()
         Object.assign(this, fields)
@@ -385,7 +385,7 @@ export class Bridge extends GameEvent implements IEventKind {
     @field('usize')
     fromGameId!: number
     @field('u8-array')
-    raw!: Uint8Array
+    raw!: Uint8Array<ArrayBuffer>
 
     constructor(fields: Fields<Bridge>) {
         super()
@@ -405,7 +405,7 @@ export class SubGameReady extends GameEvent implements IEventKind {
     @field('u16')
     maxPlayers!: number
     @field('u8-array')
-    initData!: Uint8Array
+    initData!: Uint8Array<ArrayBuffer>
 
     constructor(fields: Fields<SubGameReady>) {
         super()

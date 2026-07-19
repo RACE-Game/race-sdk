@@ -212,7 +212,7 @@ export class Effect {
     @field(array('u64'))
     ejects!: bigint[]
     @field(option('u8-array'))
-    handlerState!: Uint8Array | undefined
+    handlerState!: Uint8Array<ArrayBuffer> | undefined
     @field(option(enums(HandleError)))
     error: HandleError | undefined
     @field(option(struct(Transfer)))

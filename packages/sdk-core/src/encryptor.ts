@@ -9,9 +9,10 @@ import { Secret, Ciphertext } from './types'
 import { field } from '@race-foundation/borsh'
 import { base64ToArrayBuffer, arrayBufferToBase64 } from './utils'
 import { Chacha20 } from 'ts-chacha20'
-import { subtle } from './crypto'
 import { IStorage } from './storage'
 import { Credentials } from './credentials'
+
+const subtle = globalThis.crypto.subtle
 
 export const aesContentIv = Uint8Array.of(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
@@ -66,115 +67,115 @@ const EC_PARAMS = {
 }
 
 export async function exportRsaPublicKey(publicKey: CryptoKey): Promise<string> {
-    return arrayBufferToBase64(await subtle().exportKey('spki', publicKey))
+    return arrayBufferToBase64(await subtle.exportKey('spki', publicKey))
 }
 
 export async function exportEcPublicKey(publicKey: CryptoKey): Promise<string> {
-    return arrayBufferToBase64(await subtle().exportKey('spki', publicKey))
+    return arrayBufferToBase64(await subtle.exportKey('spki', publicKey))
 }
 
 export async function exportAes(key: CryptoKey): Promise<Uint8Array> {
-    return new Uint8Array(await subtle().exportKey('raw', key))
+    return new Uint8Array(await subtle.exportKey('raw', key))
 }
 
 export async function exportRsa(keypair: CryptoKeyPair): Promise<[string, string]> {
-    let privkey = await subtle().exportKey('pkcs8', keypair.privateKey)
+    let privkey = await subtle.exportKey('pkcs8', keypair.privateKey)
     return [arrayBufferToBase64(privkey), await exportRsaPublicKey(keypair.publicKey)]
 }
 
 export async function exportEc(keypair: CryptoKeyPair): Promise<[string, string]> {
-    let privkey = await subtle().exportKey('pkcs8', keypair.privateKey)
+    let privkey = await subtle.exportKey('pkcs8', keypair.privateKey)
     return [arrayBufferToBase64(privkey), await exportEcPublicKey(keypair.publicKey)]
 }
 
-export async function encryptRsa(publicKey: CryptoKey, plaintext: Uint8Array): Promise<Uint8Array> {
-    return new Uint8Array(await subtle().encrypt('RSA-OAEP', publicKey, plaintext))
+export async function encryptRsa(publicKey: CryptoKey, plaintext: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
+    return new Uint8Array(await subtle.encrypt('RSA-OAEP', publicKey, plaintext))
 }
 
-export async function decryptRsa(privateKey: CryptoKey, ciphertext: Uint8Array): Promise<Uint8Array> {
-    return new Uint8Array(await subtle().decrypt('RSA-OAEP', privateKey, ciphertext))
+export async function decryptRsa(privateKey: CryptoKey, ciphertext: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
+    return new Uint8Array(await subtle.decrypt('RSA-OAEP', privateKey, ciphertext))
 }
 
-export async function signEc(privateKey: CryptoKey, message: Uint8Array): Promise<Uint8Array> {
-    return new Uint8Array(await subtle().sign({ name: 'ECDSA', hash: { name: 'SHA-256' } }, privateKey, message))
+export async function signEc(privateKey: CryptoKey, message: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
+    return new Uint8Array(await subtle.sign({ name: 'ECDSA', hash: { name: 'SHA-256' } }, privateKey, message))
 }
 
-export async function verifyEc(publicKey: CryptoKey, signature: Uint8Array, message: Uint8Array): Promise<boolean> {
-    return await subtle().verify({ name: 'ECDSA', hash: { name: 'SHA-256' } }, publicKey, signature, message)
+export async function verifyEc(publicKey: CryptoKey, signature: Uint8Array<ArrayBuffer>, message: Uint8Array<ArrayBuffer>): Promise<boolean> {
+    return await subtle.verify({ name: 'ECDSA', hash: { name: 'SHA-256' } }, publicKey, signature, message)
 }
 
-export function encryptChacha20(key: Uint8Array, text: Uint8Array, nonce: Uint8Array): Uint8Array {
-    return new Chacha20(key, nonce).encrypt(text)
+export function encryptChacha20(key: Uint8Array<ArrayBuffer>, text: Uint8Array<ArrayBuffer>, nonce: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer> {
+    return new Uint8Array(new Chacha20(key, nonce).encrypt(text))
 }
 
-export function decryptChacha20(key: Uint8Array, text: Uint8Array, nonce: Uint8Array): Uint8Array {
-    return new Chacha20(key, nonce).decrypt(text)
+export function decryptChacha20(key: Uint8Array<ArrayBuffer>, text: Uint8Array<ArrayBuffer>, nonce: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer> {
+    return new Uint8Array(new Chacha20(key, nonce).decrypt(text))
 }
 
-export async function encryptAes(key: CryptoKey, text: Uint8Array, iv: Uint8Array): Promise<Uint8Array> {
+export async function encryptAes(key: CryptoKey, text: Uint8Array<ArrayBuffer>, iv: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
     return new Uint8Array(
-        await subtle().encrypt(
+        await subtle.encrypt(
             {
                 name: 'AES-CTR',
                 counter: iv,
                 length: 64,
             },
             key,
-            text
+            text,
         )
     )
 }
 
-export async function decryptAes(key: CryptoKey, text: Ciphertext, iv: Uint8Array): Promise<Uint8Array> {
+export async function decryptAes(key: CryptoKey, text: Ciphertext, iv: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
     return new Uint8Array(
-        await subtle().decrypt(
+        await subtle.decrypt(
             {
                 name: 'AES-CTR',
                 counter: iv,
                 length: 64,
             },
             key,
-            text
+            text,
         )
     )
 }
 
 export async function importAes(rawKey: Uint8Array): Promise<CryptoKey> {
-    return await subtle().importKey('raw', rawKey, { name: 'AES-CTR' }, true, ['encrypt', 'decrypt'])
+    return await subtle.importKey('raw', new Uint8Array(rawKey), { name: 'AES-CTR' }, true, ['encrypt', 'decrypt'])
 }
 
 export async function importRsa([privateKeyStr, publicKeyStr]: [string, string]): Promise<CryptoKeyPair> {
     const privateBuf = base64ToArrayBuffer(privateKeyStr)
-    const privateKey = await subtle().importKey('pkcs8', privateBuf, RSA_PARAMS, true, ['decrypt'])
+    const privateKey = await subtle.importKey('pkcs8', privateBuf, RSA_PARAMS, true, ['decrypt'])
     const publicKey = await importRsaPublicKey(publicKeyStr)
     return { publicKey, privateKey }
 }
 
 export async function importEc([privateKeyStr, publicKeyStr]: [string, string]): Promise<CryptoKeyPair> {
     const privateBuf = base64ToArrayBuffer(privateKeyStr)
-    const privateKey = await subtle().importKey('pkcs8', privateBuf, EC_PARAMS, true, ['sign'])
+    const privateKey = await subtle.importKey('pkcs8', privateBuf, EC_PARAMS, true, ['sign'])
     const publicKey = await importEcPublicKey(publicKeyStr)
     return { publicKey, privateKey }
 }
 
 export async function importRsaPublicKey(publicKeyStr: string): Promise<CryptoKey> {
     const publicBuf = base64ToArrayBuffer(publicKeyStr)
-    const publicKey = await subtle().importKey('spki', publicBuf, RSA_PARAMS, true, ['encrypt'])
+    const publicKey = await subtle.importKey('spki', publicBuf, RSA_PARAMS, true, ['encrypt'])
     return publicKey
 }
 
 export async function importEcPublicKey(publicKeyStr: string): Promise<CryptoKey> {
     const publicBuf = base64ToArrayBuffer(publicKeyStr)
-    const publicKey = await subtle().importKey('spki', publicBuf, EC_PARAMS, true, ['verify'])
+    const publicKey = await subtle.importKey('spki', publicBuf, EC_PARAMS, true, ['verify'])
     return publicKey
 }
 
 export async function generateEcKeypair(): Promise<CryptoKeyPair> {
-    return await subtle().generateKey(EC_PARAMS, true, ['verify', 'sign'])
+    return await subtle.generateKey(EC_PARAMS, true, ['verify', 'sign'])
 }
 
 export async function generateRsaKeypair(): Promise<CryptoKeyPair> {
-    return await subtle().generateKey(
+    return await subtle.generateKey(
         {
             name: 'RSA-OAEP',
             modulusLength: 512,
@@ -194,7 +195,7 @@ export function generateChacha20(): Uint8Array {
 }
 
 export async function generateAes(): Promise<CryptoKey> {
-    const k = await subtle().generateKey(
+    const k = await subtle.generateKey(
         {
             name: 'AES-CTR',
             length: 128,
@@ -208,7 +209,7 @@ export async function generateAes(): Promise<CryptoKey> {
 export interface ISignature {
     signer: string
     timestamp: bigint
-    signature: Uint8Array
+    signature: Uint8Array<ArrayBuffer>
 }
 
 export class Signature {
@@ -217,7 +218,7 @@ export class Signature {
     @field('u64')
     timestamp: bigint
     @field('u8-array')
-    signature: Uint8Array
+    signature: Uint8Array<ArrayBuffer>
 
     constructor(fields: ISignature) {
         this.signer = fields.signer
@@ -229,7 +230,7 @@ export class Signature {
 async function deriveKey(origin: Uint8Array, salt: Uint8Array): Promise<CryptoKey> {
     const rawKey = await crypto.subtle.importKey(
         'raw',
-        origin,
+        new Uint8Array(origin),
         { name: 'PBKDF2' },
         false,
         [ 'deriveKey' ],
@@ -256,7 +257,7 @@ async function deriveKey(origin: Uint8Array, salt: Uint8Array): Promise<CryptoKe
  *
  * @param originalSecret a signature signed by user's wallet
  */
-export async function generateCredentials(originalSecret: Uint8Array): Promise<Credentials> {
+export async function generateCredentials(originalSecret: Uint8Array<ArrayBuffer>): Promise<Credentials> {
     // Generate the keys
     const rsaKeypair = await generateRsaKeypair()
     const ecKeypair = await generateEcKeypair()
@@ -267,13 +268,13 @@ export async function generateCredentials(originalSecret: Uint8Array): Promise<C
 
     const iv = crypto.getRandomValues(new Uint8Array(12))
 
-    const ecPublic = await subtle().exportKey('spki', ecKeypair.publicKey)
-    const rsaPublic = await subtle().exportKey('spki', rsaKeypair.publicKey)
+    const ecPublic = await subtle.exportKey('spki', ecKeypair.publicKey)
+    const rsaPublic = await subtle.exportKey('spki', rsaKeypair.publicKey)
 
-    const ecPrivate = await subtle().exportKey('pkcs8', ecKeypair.privateKey)
-    const rsaPrivate = await subtle().exportKey('pkcs8', rsaKeypair.privateKey)
+    const ecPrivate = await subtle.exportKey('pkcs8', ecKeypair.privateKey)
+    const rsaPrivate = await subtle.exportKey('pkcs8', rsaKeypair.privateKey)
 
-    const ecPrivateEnc = await subtle().encrypt(
+    const ecPrivateEnc = await subtle.encrypt(
         {
             name: 'AES-GCM',
             iv,
@@ -281,7 +282,7 @@ export async function generateCredentials(originalSecret: Uint8Array): Promise<C
         derivedKey,
         ecPrivate,
     )
-    const rsaPrivateEnc = await subtle().encrypt(
+    const rsaPrivateEnc = await subtle.encrypt(
         {
             name: 'AES-GCM',
             iv,
@@ -397,28 +398,28 @@ export class Encryptor implements IEncryptor {
 
         const derivedKey = await deriveKey(originalSecret, salt)
 
-        const ecPrivate = await subtle().decrypt(
+        const ecPrivate = await subtle.decrypt(
             {
                 name: 'AES-GCM',
-                iv: iv,
+                iv: new Uint8Array(iv),
             },
             derivedKey,
-            ecPrivateEnc,
+            new Uint8Array(ecPrivateEnc),
         );
 
-        const rsaPrivate = await subtle().decrypt(
+        const rsaPrivate = await subtle.decrypt(
             {
                 name: 'AES-GCM',
-                iv: iv,
+                iv: new Uint8Array(iv),
             },
             derivedKey,
-            rsaPrivateEnc,
+            new Uint8Array(rsaPrivateEnc),
         );
 
-        const ecPrivateKey = await subtle().importKey('pkcs8', ecPrivate, EC_PARAMS, true, ['sign'])
-        const ecPublicKey = await subtle().importKey('spki', ecPublic, EC_PARAMS, true, ['verify'])
-        const rsaPrivateKey = await subtle().importKey('pkcs8', rsaPrivate, RSA_PARAMS, true, ['decrypt'])
-        const rsaPublicKey = await subtle().importKey('spki', rsaPublic, RSA_PARAMS, true, ['encrypt'])
+        const ecPrivateKey = await subtle.importKey('pkcs8', ecPrivate, EC_PARAMS, true, ['sign'])
+        const ecPublicKey = await subtle.importKey('spki', new Uint8Array(ecPublic), EC_PARAMS, true, ['verify'])
+        const rsaPrivateKey = await subtle.importKey('pkcs8', rsaPrivate, RSA_PARAMS, true, ['decrypt'])
+        const rsaPublicKey = await subtle.importKey('spki', new Uint8Array(rsaPublic), RSA_PARAMS, true, ['encrypt'])
 
         console.debug(`Import credentials succeed: ${addr}`)
 
@@ -436,8 +437,8 @@ export class Encryptor implements IEncryptor {
             ecPublic, rsaPublic,
         } = credentials
 
-        const ecPublicKey = await subtle().importKey('spki', ecPublic, EC_PARAMS, true, ['verify'])
-        const rsaPublicKey = await subtle().importKey('spki', rsaPublic, RSA_PARAMS, true, ['encrypt'])
+        const ecPublicKey = await subtle.importKey('spki', new Uint8Array(ecPublic), EC_PARAMS, true, ['verify'])
+        const rsaPublicKey = await subtle.importKey('spki', new Uint8Array(rsaPublic), RSA_PARAMS, true, ['encrypt'])
 
         console.debug(`Import public credentials succeed: ${addr}`)
 
@@ -447,7 +448,7 @@ export class Encryptor implements IEncryptor {
         })
     }
 
-    async decryptRsa(text: Uint8Array): Promise<Uint8Array> {
+    async decryptRsa(text: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
         if (!this.#privateKey) throw new Error('No credential available for RSA decryption')
         return await decryptRsa(this.#privateKey.rsa.privateKey, text)
     }
@@ -479,12 +480,12 @@ export class Encryptor implements IEncryptor {
         return text
     }
 
-    async signRaw(message: Uint8Array): Promise<Uint8Array> {
+    async signRaw(message: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
         if (!this.#privateKey) throw new Error('No credential available for EC sign')
         return await signEc(this.#privateKey.ec.privateKey, message)
     }
 
-    makeSignMessage(message: Uint8Array, timestamp: bigint): Uint8Array {
+    makeSignMessage(message: Uint8Array, timestamp: bigint): Uint8Array<ArrayBuffer> {
         const timestampView = new DataView(new ArrayBuffer(8))
         timestampView.setBigUint64(0, timestamp, true)
         const buf = new Uint8Array(message.length + 8)
@@ -493,7 +494,7 @@ export class Encryptor implements IEncryptor {
         return buf
     }
 
-    async sign(message: Uint8Array, signer: string): Promise<Signature> {
+    async sign(message: Uint8Array<ArrayBuffer>, signer: string): Promise<Signature> {
         const timestamp = BigInt(new Date().getTime())
         const buf = this.makeSignMessage(message, timestamp)
 
