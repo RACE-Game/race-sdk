@@ -231,12 +231,12 @@ export class AppClient extends BaseClient {
             const cost = new Date().getTime() - startTime
             pushLog(`Initialization completed, costed ${cost} milliseconds`)
 
-            // const onReadyWithLoadingProfile = (ctx: GameContextSnapshot, state: Uint8Array) => {
-            //     profileLoader.load(gameAccount.players.map(p => p.addr))
-            //     if (onReady !== undefined) {
-            //         onReady(ctx, state)
-            //     }
-            // }
+            const onReadyWithLoadingProfile = (ctx: GameContextSnapshot, state: Uint8Array) => {
+                profileLoader.load(gameAccount.players.map(p => p.addr), onProfile, storage)
+                if (onReady !== undefined) {
+                    onReady(ctx, state)
+                }
+            }
 
             return new AppClient({
                 gameAddr,
@@ -253,7 +253,7 @@ export class AppClient extends BaseClient {
                 onTxState,
                 onConnectionState,
                 onError,
-                onReady,
+                onReady: onReadyWithLoadingProfile,
                 onProfile,
                 encryptor,
                 info,
