@@ -32,7 +32,7 @@ import {
     CreateRegistrationResponse,
     CreateRegistrationError,
 } from './transport'
-import { PlayerProfileWithPfp } from './types'
+import { PlayerProfile } from './types'
 import { getLatestCheckpoints } from './connection'
 import { generateCredentials, IPublicKeyRaws } from './encryptor'
 import { IStorage } from './storage'
@@ -367,19 +367,20 @@ export class AppHelper<W> {
 
     /**
      * Get a player profile.
+     * This function forces a profile pfp loading when it's available.
      *
      * @param addr - The address of player profile account
      * @param storage - Storage for caching NFT fetch
      * @returns The player profile account or undefined when not found
      */
-    async getProfile(addr: string, storage?: IStorage): Promise<PlayerProfileWithPfp | undefined> {
+    async getProfile(addr: string, storage?: IStorage): Promise<PlayerProfile | undefined> {
         const profile = await this.__transport.getPlayerProfile(addr)
         if (profile === undefined) return undefined
         if (profile.pfp !== undefined) {
             const pfp = await this.getNft(profile.pfp, storage)
-            return { nick: profile.nick, addr: profile.addr, pfp, credentials: profile.credentials }
+            return { nick: profile.nick, addr: profile.addr, pfpAddr: profile.pfp, pfp, credentials: profile.credentials }
         } else {
-            return { nick: profile.nick, addr: profile.addr, pfp: undefined, credentials: profile.credentials }
+            return { nick: profile.nick, addr: profile.addr, pfpAddr: profile.pfp, pfp: undefined, credentials: profile.credentials }
         }
     }
 

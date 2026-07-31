@@ -15,6 +15,7 @@ import {
     TxStateCallbackFunction,
     ErrorCallbackFunction,
     ReadyCallbackFunction,
+    ProfileCallbackFunction,
 } from './types'
 import { CheckpointOnChain } from './checkpoint'
 import { IProfileLoader } from './profile-loader'
@@ -38,6 +39,7 @@ export type SubClientCtorOpts = {
     onConnectionState: ConnectionStateCallbackFunction | undefined
     onError: ErrorCallbackFunction | undefined
     onReady: ReadyCallbackFunction | undefined
+    onProfile: ProfileCallbackFunction | undefined
     info: GameInfo
     decryptionCache: DecryptionCache
     maxRetries: number

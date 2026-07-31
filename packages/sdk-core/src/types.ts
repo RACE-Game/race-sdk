@@ -34,7 +34,8 @@ export type GameInfo = {
     dataLen: number
 }
 
-export type PlayerProfileWithPfp = {
+export type PlayerProfile = {
+    pfpAddr: string | undefined
     pfp: INft | undefined
     addr: string
     nick: string
@@ -70,7 +71,7 @@ export type TxStateCallbackFunction = (txState: TxState) => void
 
 export type ConnectionStateCallbackFunction = (connState: ConnectionState) => void
 
-export type ProfileCallbackFunction = (profile: PlayerProfileWithPfp) => void
+export type ProfileCallbackFunction = (profile: PlayerProfile) => void
 
 export type LoadProfileCallbackFunction = (id: bigint, addr: string) => void
 

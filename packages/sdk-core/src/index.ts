@@ -1,6 +1,7 @@
 export * from './transport'
 export * from './encryptor'
 export * from './accounts'
+export * from './profile-loader'
 export * from './app-helper'
 export * from './app-client'
 export * from './events'

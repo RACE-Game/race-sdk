@@ -29,6 +29,7 @@ import {
     MessageCallbackFunction,
     ReadyCallbackFunction,
     TxStateCallbackFunction,
+    ProfileCallbackFunction,
 } from './types'
 import {
     BroadcastFrame,
@@ -70,6 +71,7 @@ export type BaseClientCtorOpts = {
     onConnectionState?: ConnectionStateCallbackFunction
     onError?: ErrorCallbackFunction
     onReady?: ReadyCallbackFunction
+    onProfile?: ProfileCallbackFunction
     info: GameInfo
     decryptionCache: DecryptionCache
     logPrefix: string
@@ -92,6 +94,7 @@ export class BaseClient {
     __onTxState?: TxStateCallbackFunction
     __onError?: ErrorCallbackFunction
     __onConnectionState?: ConnectionStateCallbackFunction
+    __onProfile?: ProfileCallbackFunction
     __profileLoader: IProfileLoader
     __encryptor: IEncryptor
     __info: GameInfo
@@ -118,6 +121,7 @@ export class BaseClient {
         this.__onTxState = opts.onTxState
         this.__onError = opts.onError
         this.__onReady = opts.onReady
+        this.__onProfile = opts.onProfile
         this.__onConnectionState = opts.onConnectionState
         this.__profileLoader = opts.profileLoader
         this.__encryptor = opts.encryptor
@@ -433,15 +437,19 @@ export class BaseClient {
     async __handleSync(frame: BroadcastFrameSync) {
         console.group(`${this.__logPrefix}Receive sync broadcast`, frame)
         try {
-            await this.__profileLoader.load(frame.newPlayers.map(p => p.addr))
+            await this.__profileLoader.load(frame.newPlayers.map(p => p.addr), this.__onProfile, this.__storage)
 
             for (const node of frame.newServers) {
                 await this.__loadServerCredentials(node.addr, node.accessVersion, frame.transactor_addr)
             }
 
+            console.debug('Importing server credentials completed')
+
             for (const node of frame.newPlayers) {
                 await this.__loadPlayerCredentials(node.addr, node.accessVersion)
             }
+
+            console.debug('Importing player credentials completed')
 
             this.__gameContext.setAccessVersion(frame.accessVersion)
 
@@ -476,27 +484,28 @@ export class BaseClient {
         } else if (frame instanceof BroadcastFrameEvent) {
             await this.__handleEvent(frame)
         } else if (frame instanceof BroadcastFrameBacklogs) {
-            console.group(`${this.__logPrefix}Receive event backlogs`, frame)
+            console.group(`${this.__logPrefix}Receive event backlogs (${frame.backlogs.length} in total)`, frame)
             console.debug(`Game ID = ${this.__gameId}`)
 
             const nodes: Node[] = frame.checkpointOffChain?.sharedData?.nodes || []
 
-            console.debug('Load node information:', nodes)
+            console.debug('Loading node information:', nodes)
 
             const nodePlayerAddrs = nodes.filter(n => n.mode === 0).map(n => n.addr)
-            await this.__profileLoader.load(nodePlayerAddrs)
+            await this.__profileLoader.load(nodePlayerAddrs, this.__onProfile, this.__storage)
 
+            console.debug(`Loading node credentials (${nodes.length} in total)`)
             for (const node of nodes) {
                 await this.__loadNodeCredentials(node)
             }
+            console.debug('Node credentials loaded')
 
             // TODO, remove the unnecessary part of the message.
             //
             // The versioned data for current game is always the rootData.
-
-            console.log(frame)
-            console.log(frame.checkpointOffChain)
-            console.log(frame.checkpointOffChain?.rootData)
+            // console.log(frame)
+            // console.log(frame.checkpointOffChain)
+            // console.log(frame.checkpointOffChain?.rootData)
 
             let versionedData = frame.checkpointOffChain?.rootData
 

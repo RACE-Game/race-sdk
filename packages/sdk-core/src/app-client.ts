@@ -12,10 +12,10 @@ import {
     ConnectionStateCallbackFunction,
     EventCallbackFunction,
     GameInfo,
+    PlayerProfile,
     InitLogCallbackFunction,
     MessageCallbackFunction,
     TxStateCallbackFunction,
-    PlayerProfileWithPfp,
     ErrorCallbackFunction,
     ReadyCallbackFunction,
     ProfileCallbackFunction,
@@ -29,6 +29,7 @@ import { GameContextSnapshot } from './game-context-snapshot'
 export type AppClientInitOpts = {
     transport: ITransport
     storage: IStorage
+    profileLoader: IProfileLoader
     gameAddr: string
     playerAddr: string
     onInitLog?: InitLogCallbackFunction
@@ -71,6 +72,7 @@ export type AppClientCtorOpts = {
     onConnectionState?: ConnectionStateCallbackFunction
     onError?: ErrorCallbackFunction
     onReady?: ReadyCallbackFunction
+    onProfile?: ProfileCallbackFunction
     info: GameInfo
     decryptionCache: DecryptionCache
     endpoint: string
@@ -96,6 +98,7 @@ export class AppClient extends BaseClient {
         const {
             transport,
             storage,
+            profileLoader,
             playerAddr,
             gameAddr,
             onEvent,
@@ -171,7 +174,6 @@ export class AppClient extends BaseClient {
             const endpoint = transactorAccount.endpoint
 
             const connection = Connection.initialize(gameAddr, playerAddr, endpoint, encryptor)
-            const profileLoader = new ProfileLoader(transport, storage, onProfile)
 
             console.debug(`Connected with transactor: ${endpoint}`)
             const client = new Client(playerAddr, encryptor, connection)
@@ -229,12 +231,12 @@ export class AppClient extends BaseClient {
             const cost = new Date().getTime() - startTime
             pushLog(`Initialization completed, costed ${cost} milliseconds`)
 
-            const onReadyWithLoadingProfile = (ctx: GameContextSnapshot, state: Uint8Array) => {
-                profileLoader.load(gameAccount.players.map(p => p.addr))
-                if (onReady !== undefined) {
-                    onReady(ctx, state)
-                }
-            }
+            // const onReadyWithLoadingProfile = (ctx: GameContextSnapshot, state: Uint8Array) => {
+            //     profileLoader.load(gameAccount.players.map(p => p.addr))
+            //     if (onReady !== undefined) {
+            //         onReady(ctx, state)
+            //     }
+            // }
 
             return new AppClient({
                 gameAddr,
@@ -251,7 +253,8 @@ export class AppClient extends BaseClient {
                 onTxState,
                 onConnectionState,
                 onError,
-                onReady: onReadyWithLoadingProfile,
+                onReady,
+                onProfile,
                 encryptor,
                 info,
                 decryptionCache,
@@ -350,6 +353,7 @@ export class AppClient extends BaseClient {
                 onConnectionState,
                 onError,
                 onReady,
+                onProfile: this.__onProfile,
                 handler,
                 connection,
                 client,
@@ -390,9 +394,9 @@ export class AppClient extends BaseClient {
     /**
      * Get player profile by its wallet address.
      */
-    getProfile(id: bigint): PlayerProfileWithPfp | undefined
-    getProfile(addr: string): PlayerProfileWithPfp | undefined
-    getProfile(idOrAddr: string | bigint): PlayerProfileWithPfp | undefined {
+    getProfile(id: bigint): PlayerProfile | undefined
+    getProfile(addr: string): PlayerProfile | undefined
+    getProfile(idOrAddr: string | bigint): PlayerProfile | undefined {
         let addr: string = ''
         try {
             if (typeof idOrAddr === 'bigint') {

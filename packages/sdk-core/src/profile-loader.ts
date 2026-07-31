@@ -1,103 +1,105 @@
 import { INft } from './accounts'
 import { IStorage } from './storage'
 import { ITransport } from './transport'
-import { PlayerProfileWithPfp, ProfileCallbackFunction } from './types'
+import { PlayerProfile, ProfileCallbackFunction } from './types'
 
 export interface IProfileLoader {
-    getProfile(playerAddr: string): PlayerProfileWithPfp | undefined
-    notify(profile: PlayerProfileWithPfp): void
-    load(playerAddrs: string[]): Promise<void>
+    getProfile(playerAddr: string): PlayerProfile | undefined
+    load(playerAddrs: string[], onProfile: ProfileCallbackFunction | undefined,  storage?: IStorage): Promise<void>
 }
 
+/** Async profile loader
+ *
+ * Call `load` function to load a list of profiles by their addresses.
+ * The `onProfile` callback is called every time a profile is partially or fully loaded
+ *
+ * For profiles already loaded, the `onProfile` will be called once.
+ * For profiles without pfp, the `onProfile` will be called once.
+ * For profiles with pfp, the `onProfile` will be called twice.
+ */
 export class ProfileLoader implements IProfileLoader {
     __transport: ITransport
     __onProfile: ProfileCallbackFunction | undefined
-    __profiles: Map<string, PlayerProfileWithPfp>
-    __storage?: IStorage
+    __profiles: Map<string, PlayerProfile>
 
-    constructor(transport: ITransport, storage: IStorage | undefined, onProfile: ProfileCallbackFunction | undefined) {
+    constructor(transport: ITransport) {
         this.__transport = transport
-        this.__onProfile = onProfile
         this.__profiles = new Map()
-        this.__storage = storage
     }
 
-    getProfile(playerAddr: string): PlayerProfileWithPfp | undefined {
+    getProfile(playerAddr: string): PlayerProfile | undefined {
         return this.__profiles.get(playerAddr)
     }
 
-    notify(profile: PlayerProfileWithPfp) {
-        if (this.__onProfile) {
-            this.__onProfile(profile)
-        }
-    }
-
-    async __getNft(addr: string): Promise<INft | undefined> {
-        if (!this.__storage) {
+    async __getNft(addr: string, storage?: IStorage): Promise<INft | undefined> {
+        if (!storage) {
             return await this.__transport.getNft(addr)
         } else {
-            const cachedNft = await this.__storage.getNft(addr)
+            const cachedNft = await storage.getNft(addr)
             if (cachedNft) {
                 return cachedNft
             }
             const nft = await this.__transport.getNft(addr)
             if (nft) {
-                this.__storage.cacheNft(nft)
+                storage.cacheNft(nft)
             }
             return nft
         }
     }
 
-    async load(playerAddrs: string[]) {
+    async load(playerAddrs: string[], onProfile?: ProfileCallbackFunction, storage?: IStorage) {
+
+        if (!onProfile) console.warn('ProfileLoader.load: onProfile callback is not provided')
+
         // 1, try to query the profiles those are already loaded
         let addrsToLoad: string[] = [] // For those not cached
+        let profilesToLoadPfp: Array<[PlayerProfile, string]> = [] // For those to load pfps later, each item is [profile, pfpAddr]
+
         for (const addr of playerAddrs) {
             const profile = this.__profiles.get(addr)
             if (!profile) {
                 addrsToLoad.push(addr)
             } else {
-                this.notify(profile)
+                if (onProfile) onProfile(profile)
             }
         }
 
+        // 2, load rest profiles
         if (addrsToLoad.length > 0) {
-            // 2, try to serve the profile from storage
-            let addrsToLoad2: string[] = [] // For those never loaded
-            if (this.__storage) {
-                for (const addr of addrsToLoad) {
-                    const profile = await this.__storage.getProfile(addr)
-                    // Make sure that credentials are available
-                    if (profile && profile.credentials) {
-                        this.__profiles.set(addr, profile)
-                        this.notify(profile)
-                    } else {
-                        addrsToLoad2.push(addr)
-                    }
-                }
-            } else {
-                addrsToLoad2 = addrsToLoad // When storage is not available.
-            }
+            const profiles = await this.__transport.listPlayerProfiles(addrsToLoad)
+            for (const profile of profiles) {
+                if (profile) {
+                    const profileWithoutPfp = { pfp: undefined, pfpAddr: profile.pfp, addr: profile.addr, nick: profile.nick, credentials: profile.credentials }
+                    if (onProfile) onProfile(profileWithoutPfp)
 
-            // 3, load rest profiles
-            if (addrsToLoad2.length > 0) {
-                const profiles = await this.__transport.listPlayerProfiles(addrsToLoad2)
-                for (const profile of profiles) {
-                    if (profile) {
-                        let nft = undefined
-                        if (profile.pfp) {
-                            nft = await this.__getNft(profile.pfp)
-                        }
-                        const profileWithPfp = { pfp: nft, nick: profile.nick, addr: profile.addr, credentials: profile.credentials }
+                    if (profile.pfp) {
+                        profilesToLoadPfp.push([profileWithoutPfp, profile.pfp])
+                    }
+                    this.__profiles.set(profile.addr, profileWithoutPfp)
+                }
+            }
+        }
+
+        // 3, start a background job to load profile pfps
+        // This function returns without waiting for them to be loaded.
+        if (profilesToLoadPfp.length > 0) {
+            (async () => {
+                console.debug(`Loading PFPs for ${profilesToLoadPfp.length} profiles`)
+
+                for (const [profile, pfpAddr] of profilesToLoadPfp) {
+                    const nft = await this.__getNft(pfpAddr, storage)
+                    if (nft) {
+                        const profileWithPfp = { pfp: nft, pfpAddr, addr: profile.addr, nick: profile.nick, credentials: profile.credentials }
                         this.__profiles.set(profile.addr, profileWithPfp)
-                        this.notify(profileWithPfp)
-
-                        // Cache the profile if we are not on Facade.
-                        if (this.__storage && this.__transport.chain !== 'facade') {
-                            this.__storage.cacheProfile(profileWithPfp)
-                        }
+                        if (onProfile) onProfile(profileWithPfp)
+                    } else {
+                        // Failed to load the profile pfp, still save current profile
+                        this.__profiles.set(profile.addr, profile)
                     }
                 }
-            }
+
+                console.debug('PFP loading completed')
+            })()
         }
     }
 }
