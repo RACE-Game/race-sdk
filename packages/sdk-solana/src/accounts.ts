@@ -282,6 +282,8 @@ export class GameState {
 }
 
 export class PlayersRegState {
+    @field('u8')
+    discriminator!: number
     @field('u64')
     accessVersion!: bigint
     @field('u64')
@@ -342,6 +344,7 @@ export class RegistryState {
     }
 
     static deserialize(data: Uint8Array<ArrayBuffer>): RegistryState {
+        console.log("reg data:", data)
         return deserialize(RegistryState, data)
     }
 

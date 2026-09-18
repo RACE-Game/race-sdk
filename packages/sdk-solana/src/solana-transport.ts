@@ -1782,11 +1782,6 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
         }
     }
 
-    async fixRecipientAddressTable(recipientAddr: Address): Promise<void> {
-        const recipientState = this._getRecipientState(recipientAddr)
-
-    }
-
     // port from https://github.com/anza-xyz/kit/blob/66808064e8251c452a4c339791b2985bf488e514/packages/react/src/useWalletAccountTransactionSendingSigner.ts
     useTransactionSendingSigner(wallet: SolanaWalletAdapterWallet): TransactionSendingSigner {
         return {
