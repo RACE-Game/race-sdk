@@ -406,11 +406,15 @@ export function join(opts: JoinOptions): IInstruction {
     return {
         accounts: [
             {
-                address: playerKey,
+                address: playerKey, // payer
                 role: AccountRole.READONLY_SIGNER,
             },
             {
-                address: profileKey,
+                address: playerKey, // player, also payer in this case
+                role: AccountRole.READONLY,
+            },
+            {
+                address: profileKey, // profile account
                 role: AccountRole.READONLY,
             },
             {
