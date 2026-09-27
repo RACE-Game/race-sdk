@@ -65,10 +65,13 @@ export class ProfileLoader implements IProfileLoader {
         }
 
         // 2, load rest profiles
-        if (addrsToLoad.length > 0) {
+        while (addrsToLoad.length > 0) {
+            let newAddrsToLoad: string[] = []
             const profiles = await this.__transport.listPlayerProfiles(addrsToLoad)
-            for (const profile of profiles) {
-                if (profile) {
+            for (let i = 0; i < addrsToLoad.length; ++i) {
+                const profile = profiles[i]
+                const addr = addrsToLoad[i]
+                if (profile) {  // profile loaded
                     const profileWithoutPfp = { pfp: undefined, pfpAddr: profile.pfp, addr: profile.addr, nick: profile.nick, credentials: profile.credentials }
                     if (onProfile) onProfile(profileWithoutPfp)
 
@@ -76,7 +79,15 @@ export class ProfileLoader implements IProfileLoader {
                         profilesToLoadPfp.push([profileWithoutPfp, profile.pfp])
                     }
                     this.__profiles.set(profile.addr, profileWithoutPfp)
+                } else {        // profile not loaded, we must retry it
+                    newAddrsToLoad.push(addr)
                 }
+            }
+
+            addrsToLoad = newAddrsToLoad
+            if (addrsToLoad.length > 0) {
+                await new Promise(r => setTimeout(r, 1000))
+                console.warn(`Not all profiles are loaded in one call, will retry on ${addrsToLoad.length} addresses`, addrsToLoad)
             }
         }
 
