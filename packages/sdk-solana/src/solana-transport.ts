@@ -417,9 +417,14 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
             this._getGameState(gameAccountKey),
             this.getPlayerProfile(payer.address),
         ])
+
+        if (playerProfile === undefined) {
+            return response.failed('profile-not-found')
+        }
+
         console.debug('Batched RPC calls took %s milliseconds', new Date().getTime() - d.getTime())
 
-        const profileKey0 = playerProfile !== undefined ? address(playerProfile?.addr) : undefined
+        const profileKey = await this._getPlayerProfileAddress(payer.address)
 
         if (gameState === undefined) return response.failed('game-not-found')
 
@@ -450,12 +455,6 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
 
         let ixs: IInstruction[] = []
 
-        let profileKey: Address
-        if (profileKey0 !== undefined) {
-            profileKey = profileKey0
-        } else {
-            return response.failed('profile-not-found')
-        }
         let tempAccount
         if (isWsol) {
             const account = await generateKeyPairSigner()
