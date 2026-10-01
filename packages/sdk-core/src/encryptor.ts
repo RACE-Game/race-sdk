@@ -431,8 +431,6 @@ export class Encryptor implements IEncryptor {
 
     async importPublicCredentials(addr: string, credentials: Credentials): Promise<void> {
         console.debug(`Import public credentials for node: ${addr}`)
-        console.debug('Credentials:', credentials)
-
         const {
             ecPublic, rsaPublic,
         } = credentials

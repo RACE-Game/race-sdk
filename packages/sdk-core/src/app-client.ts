@@ -129,7 +129,6 @@ export class AppClient extends BaseClient {
             if (gameAccount === undefined) {
                 return raiseError(SdkError.gameAccountNotFound(gameAddr))
             }
-            console.debug('Game account:', gameAccount)
             pushLog('Game account ready')
 
             const transactorAddr = gameAccount.transactorAddr
@@ -167,8 +166,8 @@ export class AppClient extends BaseClient {
                 return raiseError(SdkError.transactorAccountNotFound(transactorAddr))
             }
 
-            console.debug('Game bundle:', gameBundle)
-            console.debug('Transactor account:', transactorAccount)
+            console.debug('Game bundle loaded:', gameBundle?.key)
+            console.debug('Transactor address:', transactorAccount?.addr)
 
             const decryptionCache = new DecryptionCache()
             const endpoint = transactorAccount.endpoint

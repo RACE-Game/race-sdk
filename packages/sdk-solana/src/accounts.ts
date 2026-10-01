@@ -344,7 +344,6 @@ export class RegistryState {
     }
 
     static deserialize(data: Uint8Array<ArrayBuffer>): RegistryState {
-        console.log("reg data:", data)
         return deserialize(RegistryState, data)
     }
 
