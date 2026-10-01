@@ -1,6 +1,6 @@
 {
   "name": "@race-foundation/sdk-core",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "The type definitions for Race SDK",
   "scripts": {
     "check": "tsc -p tsconfig.check.json",

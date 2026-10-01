@@ -1,6 +1,6 @@
 {
   "name": "@race-foundation/sdk-solana",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "The Solana support for Race SDK",
   "scripts": {
     "check": "tsc -p tsconfig.check.json",

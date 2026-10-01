@@ -1,0 +1,47 @@
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 18
+        cache: 'npm'
+        cache-dependency-path: package-lock.json
+        registry-url: 'https://registry.npmjs.org'
+
+    - name: Install Dependencies
+      run: npm ci -ws
+
+    - name: Set package versions from tag
+      run: |
+        VERSION=${GITHUB_REF_NAME#v}
+        echo "Publishing version $VERSION"
+        for pkg in borsh sdk-core sdk-solana; do
+          npm version "$VERSION" --no-git-tag-version --workspace "packages/$pkg"
+        done
+
+    - name: Build borsh
+      run: npm run build --prefix ./packages/borsh
+
+    - name: Build SDK Core
+      run: npm run build --prefix ./packages/sdk-core
+
+    - name: Build SDK Solana
+      run: npm run build --prefix ./packages/sdk-solana
+
+    - name: Publish packages
+      run: |
+        for pkg in borsh sdk-core sdk-solana; do
+          npm publish --workspace "packages/$pkg" --access public
+        done
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
