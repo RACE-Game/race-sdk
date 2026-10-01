@@ -1813,9 +1813,6 @@ export class SolanaTransport implements ITransport<SolanaWalletAdapterWallet> {
     // Ref: https://github.com/anza-xyz/wallet-standard/blob/master/packages/core/features/src/signMessage.ts
     async signMessage(wallet: SolanaWalletAdapterWallet, message: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
         const account = wallet.accounts[0]
-        console.info('XXX Account:', account)
-        console.info('XXX Message:', message)
-        console.info('XXX wallet.features[SolanaSignMessage]', wallet.features[SolanaSignMessage])
         const resps = await wallet.features[SolanaSignMessage]!.signMessage({
             account,
             message,

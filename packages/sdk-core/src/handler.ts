@@ -67,7 +67,6 @@ export class Handler implements IHandler {
         await this.generalPreHandleEvent(context, event, this.#encryptor)
         const eventEffects = await this.customHandleEvent(context, event)
         await this.generalPostHandleEvent(context, event, eventEffects)
-        console.info("Game context: ", structuredClone(context))
         return eventEffects
     }
 

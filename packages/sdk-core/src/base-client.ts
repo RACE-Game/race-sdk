@@ -318,37 +318,30 @@ export class BaseClient {
 
     async __handleEvent(frame: BroadcastFrameEvent) {
         const { event, timestamp, stateSha } = frame
-        console.group(this.__logPrefix + 'Handle event: ' + event.kind() + ' at timestamp: ' + timestamp)
+        console.info(`${this.__logPrefix} Handle event: ${event.kind}`)
         let state: Uint8Array | undefined
         let err: ErrorKind | undefined
         let effects: EventEffects | undefined
 
         try {
-            // For log group
-            try {
-                console.info('Event:', event)
-                console.info('Game context:', this.__gameContext)
-                this.__gameContext.setTimestamp(timestamp)
-                effects = await this.__handler.handleEvent(this.__gameContext, event)
-                state = this.__gameContext.handlerState
-                await this.__checkStateSha(stateSha, 'event-state-sha-mismatch')
-            } catch (e: any) {
-                console.error(this.__logPrefix, e)
-                err = 'handle-event-error'
-            }
+            this.__gameContext.setTimestamp(timestamp)
+            effects = await this.__handler.handleEvent(this.__gameContext, event)
+            state = this.__gameContext.handlerState
+            await this.__checkStateSha(stateSha, 'event-state-sha-mismatch')
+        } catch (e: any) {
+            console.error(this.__logPrefix, e)
+            err = 'handle-event-error'
+        }
 
-            if (!err) {
-                await this.__invokeEventCallback(event, {
-                    isCheckpoint: effects?.checkpoint !== undefined,
-                })
-            }
+        if (!err) {
+            await this.__invokeEventCallback(event, {
+                isCheckpoint: effects?.checkpoint !== undefined,
+            })
+        }
 
-            if (err) {
-                this.__invokeErrorCallback(err, state)
-                throw new Error(`An error occurred in event loop: ${err}`)
-            }
-        } finally {
-            console.groupEnd()
+        if (err) {
+            this.__invokeErrorCallback(err, state)
+            throw new Error(`An error occurred in event loop: ${err}`)
         }
     }
 
@@ -365,7 +358,7 @@ export class BaseClient {
                 throw new Error(`Profile account not found for ${addr}`)
             }
 
-            console.debug(`Player ${addr} credentials:`, profile.credentials)
+            console.info(`Add player ${addr} credentials`)
             credentials = Credentials.deserialize(profile.credentials)
         } else {
             const server = await this.__transport.getServerAccount(addr)
@@ -374,7 +367,7 @@ export class BaseClient {
                 throw new Error(`Server account not found for ${addr}`)
             }
 
-            console.debug(`Server ${addr} credentials:`, server.credentials)
+            console.info(`Add server ${addr} credentials`)
             credentials = Credentials.deserialize(server.credentials)
         }
 
@@ -435,66 +428,51 @@ export class BaseClient {
     }
 
     async __handleSync(frame: BroadcastFrameSync) {
-        console.group(`${this.__logPrefix}Receive sync broadcast`, frame)
-        try {
-            await this.__profileLoader.load(frame.newPlayers.map(p => p.addr), this.__onProfile, this.__storage)
+        console.info(`${this.__logPrefix} Receive sync broadcast, newPlayers: ${frame.newPlayers.length}`)
+        await this.__profileLoader.load(frame.newPlayers.map(p => p.addr), this.__onProfile, this.__storage)
 
-            for (const node of frame.newServers) {
-                await this.__loadServerCredentials(node.addr, node.accessVersion, frame.transactor_addr)
-            }
-
-            console.debug('Importing server credentials completed')
-
-            for (const node of frame.newPlayers) {
-                await this.__loadPlayerCredentials(node.addr, node.accessVersion)
-            }
-
-            console.debug('Importing player credentials completed')
-
-            this.__gameContext.setAccessVersion(frame.accessVersion)
-
-        } finally {
-            console.groupEnd()
+        for (const node of frame.newServers) {
+            await this.__loadServerCredentials(node.addr, node.accessVersion, frame.transactor_addr)
         }
+
+        console.debug('Importing server credentials completed')
+
+        for (const node of frame.newPlayers) {
+            await this.__loadPlayerCredentials(node.addr, node.accessVersion)
+        }
+
+        console.debug('Importing player credentials completed')
+
+        this.__gameContext.setAccessVersion(frame.accessVersion)
     }
 
     async __handleBroadcastFrame(frame: BroadcastFrame) {
         if (frame instanceof BroadcastFrameMessage) {
-            console.group(`${this.__logPrefix}Receive message broadcast`, frame)
-            try {
-                if (this.__onMessage !== undefined) {
-                    const { message } = frame
-                    this.__onMessage(message)
-                }
-            } finally {
-                console.groupEnd()
+            console.info(`${this.__logPrefix}Receive message broadcast`)
+            if (this.__onMessage !== undefined) {
+                const { message } = frame
+                this.__onMessage(message)
             }
         } else if (frame instanceof BroadcastFrameTxState) {
-            console.group(`${this.__logPrefix}Receive transaction state broadcast`, frame)
-            try {
-                if (this.__onTxState !== undefined) {
-                    const { txState } = frame
-                    this.__onTxState(txState)
-                }
-            } finally {
-                console.groupEnd()
+            console.info(`${this.__logPrefix}Receive transaction state broadcast`)
+            if (this.__onTxState !== undefined) {
+                const { txState } = frame
+                this.__onTxState(txState)
             }
         } else if (frame instanceof BroadcastFrameSync) {
             await this.__handleSync(frame)
         } else if (frame instanceof BroadcastFrameEvent) {
             await this.__handleEvent(frame)
         } else if (frame instanceof BroadcastFrameBacklogs) {
-            console.group(`${this.__logPrefix}Receive event backlogs (${frame.backlogs.length} in total)`, frame)
+            console.info(`${this.__logPrefix}Receive event backlogs (${frame.backlogs.length} in total)`)
             console.debug(`Game ID = ${this.__gameId}`)
 
             const nodes: Node[] = frame.checkpointOffChain?.sharedData?.nodes || []
 
-            console.debug('Loading node information:', nodes)
-
             const nodePlayerAddrs = nodes.filter(n => n.mode === 0).map(n => n.addr)
             await this.__profileLoader.load(nodePlayerAddrs, this.__onProfile, this.__storage)
 
-            console.debug(`Loading node credentials (${nodes.length} in total)`)
+            console.debug(`Loading node credentials, conut: ${nodes.length}`)
             for (const node of nodes) {
                 await this.__loadNodeCredentials(node)
             }
@@ -540,8 +518,6 @@ export class BaseClient {
                 }
             } catch (e) {
                 console.error(e)
-            } finally {
-                console.groupEnd()
             }
         }
     }
