@@ -71,15 +71,9 @@ export class GameContext {
     randomStates: RandomState[]
     decisionStates: DecisionState[]
     versionedData: VersionedData
-    subGames: GameSpec[]
     entryType: IEntryType
 
     constructor(sharedData: ISharedData, versionedData: VersionedData) {
-        let subGames: GameSpec[] = []
-        for (const vd of versionedData.subData.values()) {
-            subGames.push(vd.gameSpec)
-        }
-
         this.gameSpec = versionedData.gameSpec
         this.versions = versionedData.versions
         this.status = 'Idle'
@@ -90,9 +84,16 @@ export class GameContext {
         this.decisionStates = []
         this.handlerState = versionedData.handlerState
         this.versionedData = versionedData
-        this.subGames = subGames
         this.entryType = versionedData.gameSpec.entryType.generalize()
         this.balances = sharedData.balances
+    }
+
+    /**
+     * The sub games are always derived from the versioned data, so that
+     * they stay in sync when the versioned data is replaced on resync.
+     */
+    get subGames(): GameSpec[] {
+        return [...this.versionedData.subData.values()].map(vd => vd.gameSpec)
     }
 
     idToAddrUnchecked(id: bigint): string | undefined {
@@ -363,13 +364,19 @@ export class GameContext {
         }
 
         for (const launchSubGame of effect.launchSubGames) {
-            this.subGames.push(new GameSpec({
-                gameAddr: this.gameSpec.gameAddr,
-                gameId: launchSubGame.gameId,
-                bundleKey: launchSubGame.bundleKey,
-                maxPlayers: launchSubGame.initAccount.maxPlayers,
-                entryType: new EntryTypeDisabled({}),
-            }))
+            if (!this.versionedData.subData.has(launchSubGame.gameId)) {
+                const gameSpec = new GameSpec({
+                    gameAddr: this.gameSpec.gameAddr,
+                    gameId: launchSubGame.gameId,
+                    bundleKey: launchSubGame.bundleKey,
+                    maxPlayers: launchSubGame.initAccount.maxPlayers,
+                    entryType: new EntryTypeDisabled({}),
+                })
+                this.versionedData.subData.set(
+                    launchSubGame.gameId,
+                    VersionedData.init(gameSpec, Versions.default(), new Uint8Array())
+                )
+            }
         }
 
         return {
@@ -398,13 +405,15 @@ export class GameContext {
     }
 
     findSubGame(gameId: number): GameSpec | undefined {
-        return this.subGames.find(g => g.gameId === Number(gameId))
+        return this.versionedData.subData.get(Number(gameId))?.gameSpec
     }
 
     addSubGame(subGame: GameSpec) {
-        const found = this.subGames.find(s => s.gameId === subGame.gameId)
-        if (found === undefined) {
-            this.subGames.push(subGame)
+        if (!this.versionedData.subData.has(subGame.gameId)) {
+            this.versionedData.subData.set(
+                subGame.gameId,
+                VersionedData.init(subGame, Versions.default(), new Uint8Array())
+            )
         }
     }
 
