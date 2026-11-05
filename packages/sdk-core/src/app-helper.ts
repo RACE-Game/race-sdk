@@ -343,6 +343,10 @@ export class AppHelper<W> {
         return results
     }
 
+    async clearBundles(storage: IStorage) {
+	await storage.clearBundles()
+    }
+
     /**
      * Cache a list of game bundles.
      *
